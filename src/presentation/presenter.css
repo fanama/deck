@@ -1,0 +1,74 @@
+/*
+ * presenter.css — the studio's presentation surface. It lives here, not in
+ * design/deck.css, because deck.css is copied verbatim into every exported
+ * deck and must stay free of studio chrome.
+ */
+
+.presenter {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--paper);
+  outline: none;
+}
+
+.presenter-stage {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  transform-origin: center center;
+}
+
+.presenter-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(18, 23, 31, 0.08);
+}
+
+.presenter-progress-bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.presenter-chrome {
+  position: fixed;
+  left: 18px;
+  right: 18px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.presenter-hint {
+  letter-spacing: 0.04em;
+}
+
+.presenter-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presenter-counter {
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presenter-progress-bar {
+    transition: none;
+  }
+}

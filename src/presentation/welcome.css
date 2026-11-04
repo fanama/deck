@@ -1,0 +1,243 @@
+/*
+ * welcome.css — the front page: header, reading column with the deck's real
+ * first slide, and a footer. Same paper, hairlines and serif/sans pairing as
+ * the studio, so it reads as one product rather than a template.
+ *
+ * Two local tokens exist because this surface is paper, not panel white:
+ * `--muted` measures 4.3:1 here, which is under the 4.5 floor for small text.
+ */
+
+.welcome {
+  --welcome-muted: #5a6673; /* 5.3:1 on --paper */
+  --welcome-accent-hover: #0c5852; /* one step darker than --accent */
+  --welcome-gutter: 56px;
+
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* -- header -------------------------------------------------------------- */
+.welcome-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 56px;
+  padding: 0 var(--welcome-gutter);
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.welcome-github {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+
+.welcome-github:hover {
+  color: var(--welcome-accent-hover);
+  border-bottom-color: var(--welcome-accent-hover);
+}
+
+.welcome-github-mark {
+  font-size: 12px;
+  color: var(--welcome-muted);
+}
+
+/* -- main ---------------------------------------------------------------- */
+.welcome-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: start;
+  gap: 72px;
+  padding: 76px var(--welcome-gutter) 64px;
+}
+
+.welcome-copy {
+  max-width: 620px;
+}
+
+.welcome h1 {
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--serif);
+  font-size: clamp(34px, 3.4vw, 54px);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.welcome-lede {
+  margin: 22px 0 0;
+  max-width: 58ch;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 22px;
+  margin-top: 34px;
+}
+
+.welcome .button.primary {
+  padding: 10px 18px;
+  font-size: 14px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.welcome .button.primary:hover {
+  background: var(--welcome-accent-hover);
+  border-color: var(--welcome-accent-hover);
+  filter: none;
+}
+
+.welcome-facts {
+  max-width: 560px;
+  margin: 46px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.welcome-facts > div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 18px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.welcome-facts dt {
+  padding-top: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--welcome-muted);
+}
+
+.welcome-facts dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.welcome-artifact {
+  margin: 0;
+  padding-top: 4px;
+}
+
+.welcome-artifact-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.welcome-artifact-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 720px;
+  transform-origin: top left;
+}
+
+.welcome-artifact figcaption {
+  max-width: 46ch;
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--welcome-muted);
+}
+
+/* -- footer -------------------------------------------------------------- */
+.welcome-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 18px var(--welcome-gutter);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--welcome-muted);
+}
+
+@media (max-width: 1080px) {
+  .welcome {
+    --welcome-gutter: 40px;
+  }
+
+  .welcome-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+    padding-top: 56px;
+  }
+
+  .welcome h1 {
+    max-width: 24ch;
+  }
+
+  .welcome-artifact {
+    max-width: 640px;
+  }
+}
+
+@media (max-width: 620px) {
+  .welcome {
+    --welcome-gutter: 20px;
+  }
+
+  .welcome-main {
+    gap: 32px;
+    padding: 32px var(--welcome-gutter) 44px;
+  }
+
+  .welcome h1 {
+    max-width: none;
+  }
+
+  .welcome-lede {
+    font-size: 15.5px;
+  }
+
+  .welcome-actions {
+    gap: 16px;
+  }
+
+  .welcome-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding: 10px 0;
+  }
+
+  .welcome-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .welcome-header .brand-sub {
+    display: none;
+  }
+}

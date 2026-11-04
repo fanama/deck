@@ -1,0 +1,454 @@
+/*
+ * deck.css — the one stylesheet shared by the studio preview and every
+ * exported deck. It travels into the exported file verbatim, so anything you
+ * add here must be self-contained: no imports, no network fonts, no images.
+ */
+
+:root {
+  --ink: #12171f;
+  --ink-soft: #33404f;
+  --muted: #667485;
+  --line: #d9d6cf;
+  --paper: #f6f4ef;
+  --card: #ffffff;
+  --accent: #0f6b64;
+  --accent-soft: #e3f1ee;
+  --accent-line: #cfe5e0;
+  --warm: #b45309;
+  --warm-soft: #fbf0e2;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --title-from: #10302f;
+  --title-to: #0d2a34;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* -- slide shell -------------------------------------------------------- */
+.slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 52px 68px 54px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 24px 60px -30px rgba(18, 23, 31, 0.45), 0 2px 6px rgba(18, 23, 31, 0.05);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+.slide.active {
+  display: flex;
+  animation: deck-rise 0.32s ease both;
+}
+
+@keyframes deck-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide.active {
+    animation: none;
+  }
+}
+
+.slide .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.slide .eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.slide h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 62px;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin: 26px 0 0;
+  max-width: 17ch;
+}
+
+.slide h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 14px 0 0;
+  max-width: 34ch;
+}
+
+.slide h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.slide p {
+  margin: 0;
+}
+
+.slide .lede {
+  margin-top: 18px;
+  max-width: 58ch;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.slide .note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.slide .mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.slide .mono-list {
+  display: grid;
+  gap: 8px;
+}
+
+.slide .body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 26px;
+}
+
+.slide .footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- builders ----------------------------------------------------------- */
+.slide .cols {
+  display: grid;
+  grid-template-columns: repeat(var(--columns, 3), minmax(0, 1fr));
+  gap: 18px;
+}
+
+.slide .card {
+  padding: 20px 22px;
+  background: #fbfaf7;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.slide .card p {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.slide .num {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.slide .stat {
+  font-family: var(--serif);
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.slide .stat small {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.slide ul.clean {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.slide ul.clean li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.slide ul.clean li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.58em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.75;
+}
+
+.slide .rules {
+  display: grid;
+  gap: 10px;
+}
+
+.slide .rule {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 13px 16px;
+  border-left: 2px solid var(--accent);
+  background: #fbfaf7;
+}
+
+.slide .rule .k {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.slide .rule p {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.slide .pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.slide .pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* -- flow: one row of boxes per lane, arrows drawn as text --------------- */
+.slide .lanes {
+  display: grid;
+  gap: 14px;
+}
+
+.slide .lane {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fbfaf7;
+}
+
+.slide .lane-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.slide .row {
+  display: flex;
+  align-items: stretch;
+}
+
+.slide .node {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 9px 12px;
+  border: 1px solid #cfd6d3;
+  border-radius: 3px;
+  background: #fff;
+  font-size: 12.8px;
+  line-height: 1.35;
+}
+
+.slide .node strong {
+  display: block;
+  font-size: 13px;
+}
+
+.slide .node span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.slide .arrow {
+  align-self: center;
+  flex: 0 0 auto;
+  padding: 0 7px;
+  font-size: 15px;
+  color: #9aa8a5;
+}
+
+/* -- title and closing: dark, editorial --------------------------------- */
+.slide.title {
+  padding: 64px 72px 56px;
+  color: #f3f7f6;
+  border-color: #0d2a2e;
+  background: linear-gradient(122deg, var(--title-from) 0%, var(--title-to) 100%);
+}
+
+.slide.title .eyebrow {
+  color: #9fc4bd;
+}
+
+.slide.title .eyebrow::after {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.slide.title h1 {
+  color: #fff;
+}
+
+.slide.title .lede {
+  color: #c6dcd7;
+}
+
+.slide.title .footer {
+  border-top-color: rgba(255, 255, 255, 0.16);
+  color: #9fc4bd;
+}
+
+.slide.title .pill {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #e7f3f0;
+}
+
+.slide .title-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 40px;
+  align-items: end;
+}
+
+.slide .kv {
+  display: grid;
+  gap: 14px;
+  align-content: end;
+  margin: 0;
+}
+
+.slide .kv div {
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding-top: 10px;
+}
+
+.slide .kv dt {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb6ae;
+}
+
+.slide .kv dd {
+  margin: 0;
+  font-size: 15px;
+  color: #eaf3f1;
+}
+
+/* -- technical slide: the darkness is a signal, not decoration ---------- */
+.slide.dark {
+  background: #0f1b21;
+  border-color: #16262e;
+  color: #eef4f3;
+}
+
+.slide.dark .eyebrow {
+  color: #8fb6ae;
+}
+
+.slide.dark .eyebrow::after {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.slide.dark .footer {
+  border-top-color: rgba(255, 255, 255, 0.16);
+  color: #8fb6ae;
+}
+
+.slide.dark .card {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.slide.dark .card p,
+.slide.dark ul.clean li {
+  color: #b9cdc9;
+}
+
+.slide.dark .mono {
+  color: #9fd6cb;
+}
+
+.slide.dark h2 {
+  color: #fff;
+}
