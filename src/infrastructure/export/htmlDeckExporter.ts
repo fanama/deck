@@ -30,6 +30,7 @@ export function createHtmlDeckExporter(): DeckExporter {
             totalSlides,
             footerLabel: deck.footerLabel,
             isActive: index === 0,
+            accentColor: deck.theme.accentColor,
           }),
         )
         .join("\n\n");

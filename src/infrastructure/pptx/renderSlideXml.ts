@@ -2,16 +2,18 @@ import type {
   CardsSlideContent,
   ClosingSlideContent,
   Deck,
+  DiagramSlideContent,
   FlowLane,
   FlowSlideContent,
   MetaRow,
   RulesSlideContent,
   Slide,
   StatementSlideContent,
+  TableSlideContent,
   TechnicalSlideContent,
   TitleSlideContent,
 } from "../../domain/deck/slideTypes.ts";
-import { SHAPE_TREE_CLOSE, SHAPE_TREE_OPEN, shapeXml, slideBackgroundXml } from "./pptxShapes.ts";
+import { SHAPE_TREE_CLOSE, SHAPE_TREE_OPEN, pictureXml, shapeXml, slideBackgroundXml } from "./pptxShapes.ts";
 import type { ShapeFill } from "./pptxShapes.ts";
 import { estimateTextWidth, measureText, textBoxXml } from "./pptxText.ts";
 import type { ParagraphSpec, TextStyle } from "./pptxText.ts";
@@ -698,6 +700,149 @@ function renderStatementSlide(canvas: SlideCanvas, content: StatementSlideConten
   ]);
 }
 
+/* -- table --------------------------------------------------------------- */
+
+const TABLE_LABEL_COLUMN_SHARE = 0.28;
+const TABLE_ROW_PADDING = 5;
+
+function renderTableSlide(canvas: SlideCanvas, content: TableSlideContent): void {
+  const { frame, palette } = canvas;
+  const eyebrowBottom = writeEyebrow(canvas, content.eyebrow, palette.muted);
+
+  const headingStyle: TextStyle = { fontPx: 40, lineHeight: 1.12, family: "serif", bold: true, color: palette.ink };
+  const headerStyle: TextStyle = {
+    fontPx: 10,
+    lineHeight: 1.2,
+    family: "sans",
+    bold: true,
+    caps: true,
+    letterSpacingPx: 1.5,
+    color: palette.muted,
+  };
+  const labelStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.25, family: "mono", bold: true, color: palette.ink };
+  const detailStyle: TextStyle = { fontPx: 9.5, lineHeight: 1.25, family: "sans", color: palette.muted };
+  const cellStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.3, family: "sans", color: palette.inkSoft };
+  const noteStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
+
+  const heading = measureText(content.heading, headingStyle, Math.min(frame.width, lineLengthPx(40, 34, "serif")));
+
+  const labelWidth = frame.width * TABLE_LABEL_COLUMN_SHARE;
+  const dataColumnCount = Math.max(1, content.columns.length);
+  const columnWidth = (frame.width - labelWidth) / dataColumnCount;
+  const headerHeight = measureText(content.rowHeader, headerStyle, labelWidth).heightPx;
+  const ruleGap = 6;
+
+  const rowHeights = content.rows.map((row) => {
+    const labelHeight = measureText(row.label, labelStyle, labelWidth - 12).heightPx;
+    const detailHeight = row.detail.trim() ? measureText(row.detail, detailStyle, labelWidth - 12).heightPx : 0;
+    const cellHeights = content.columns.map(
+      (_column, index) => measureText(row.cells[index] ?? "", cellStyle, columnWidth - 12).heightPx,
+    );
+
+    return Math.max(labelHeight + detailHeight, ...cellHeights, 0) + TABLE_ROW_PADDING * 2;
+  });
+  const rowsHeight = rowHeights.reduce((total, rowHeight) => total + rowHeight, 0);
+  const note = content.note.trim() ? measureText(content.note, noteStyle, frame.width) : null;
+
+  const blockHeight =
+    heading.heightPx + BODY_GAP + headerHeight + ruleGap + rowsHeight + (note ? BODY_GAP + note.heightPx : 0);
+  const top = centeredTop(bodyRegion(canvas, eyebrowBottom), blockHeight);
+
+  writeText(canvas, "Heading", frame.x, top, Math.min(frame.width, lineLengthPx(40, 34, "serif")), heading.heightPx + 6, [
+    { text: content.heading, style: headingStyle },
+  ]);
+
+  const headerTop = top + heading.heightPx + BODY_GAP;
+  writeText(canvas, "Column header", frame.x, headerTop, labelWidth, headerHeight + 2, [
+    { text: content.rowHeader, style: headerStyle },
+  ]);
+
+  content.columns.forEach((column, index) => {
+    writeText(
+      canvas,
+      `Column header ${index + 1}`,
+      frame.x + labelWidth + index * columnWidth,
+      headerTop,
+      columnWidth,
+      headerHeight + 2,
+      [{ text: column, style: headerStyle }],
+    );
+  });
+
+  const headerRuleY = headerTop + headerHeight + ruleGap - 2;
+
+  canvas.shapes.push(
+    shapeXml({
+      id: canvas.nextId(),
+      name: "Table header rule",
+      x: frame.x,
+      y: headerRuleY,
+      width: frame.width,
+      height: 1,
+      fill: palette.ink,
+    }),
+  );
+
+  let rowTop = headerRuleY + 1;
+
+  content.rows.forEach((row, rowIndex) => {
+    if (rowIndex > 0) {
+      canvas.shapes.push(
+        shapeXml({
+          id: canvas.nextId(),
+          name: `Row ${rowIndex + 1} rule`,
+          x: frame.x,
+          y: rowTop,
+          width: frame.width,
+          height: 1,
+          fill: palette.line,
+        }),
+      );
+    }
+
+    const labelHeight = measureText(row.label, labelStyle, labelWidth - 12).heightPx;
+    writeText(canvas, `Row ${rowIndex + 1} label`, frame.x, rowTop + TABLE_ROW_PADDING, labelWidth - 14, labelHeight + 2, [
+      { text: row.label, style: labelStyle },
+    ]);
+
+    if (row.detail.trim()) {
+      const detail = measureText(row.detail, detailStyle, labelWidth - 12);
+      writeText(
+        canvas,
+        `Row ${rowIndex + 1} detail`,
+        frame.x,
+        rowTop + TABLE_ROW_PADDING + labelHeight,
+        labelWidth - 14,
+        detail.heightPx + 2,
+        [{ text: row.detail, style: detailStyle }],
+      );
+    }
+
+    content.columns.forEach((_column, columnIndex) => {
+      const cellText = row.cells[columnIndex] ?? "";
+      const cell = measureText(cellText, cellStyle, columnWidth - 12);
+
+      writeText(
+        canvas,
+        `Row ${rowIndex + 1} cell ${columnIndex + 1}`,
+        frame.x + labelWidth + columnIndex * columnWidth,
+        rowTop + TABLE_ROW_PADDING,
+        columnWidth - 12,
+        cell.heightPx + 2,
+        [{ text: cellText, style: cellStyle }],
+      );
+    });
+
+    rowTop += rowHeights[rowIndex];
+  });
+
+  if (note) {
+    writeText(canvas, "Footnote", frame.x, rowTop + BODY_GAP, frame.width, note.heightPx + 2, [
+      { text: content.note, style: noteStyle },
+    ]);
+  }
+}
+
 /* -- technical ----------------------------------------------------------- */
 
 function renderTechnicalSlide(canvas: SlideCanvas, content: TechnicalSlideContent): void {
@@ -779,6 +924,86 @@ function renderTechnicalSlide(canvas: SlideCanvas, content: TechnicalSlideConten
   }
 }
 
+/* -- diagram ------------------------------------------------------------- */
+
+/** Below this the drawing stops reading on a projector; it is cropped instead. */
+const DIAGRAM_MIN_HEIGHT = 90;
+
+export interface DiagramImage {
+  relId: string;
+  pixelWidth: number;
+  pixelHeight: number;
+}
+
+function renderDiagramSlide(
+  canvas: SlideCanvas,
+  content: DiagramSlideContent,
+  image: DiagramImage | null,
+): void {
+  const { frame, palette } = canvas;
+  const eyebrowBottom = writeEyebrow(canvas, content.eyebrow, palette.muted);
+  const region = bodyRegion(canvas, eyebrowBottom);
+
+  const headingStyle: TextStyle = {
+    fontPx: 40,
+    lineHeight: 1.12,
+    family: "serif",
+    bold: true,
+    color: palette.ink,
+  };
+  const noteStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
+
+  const headingWidth = Math.min(frame.width, lineLengthPx(40, 34, "serif"));
+  const heading = measureText(content.heading, headingStyle, headingWidth);
+  const note = content.note.trim() ? measureText(content.note, noteStyle, frame.width) : null;
+
+  if (!image) {
+    const blockHeight = heading.heightPx + (note ? BODY_GAP + note.heightPx : 0);
+    const blockTop = centeredTop(region, blockHeight);
+
+    writeText(canvas, "Heading", frame.x, blockTop, headingWidth, heading.heightPx + 6, [
+      { text: content.heading, style: headingStyle },
+    ]);
+
+    if (note) {
+      writeText(canvas, "Footnote", frame.x, blockTop + heading.heightPx + BODY_GAP, frame.width, note.heightPx + 2, [
+        { text: content.note, style: noteStyle },
+      ]);
+    }
+
+    return;
+  }
+
+  writeText(canvas, "Heading", frame.x, region.top, headingWidth, heading.heightPx + 6, [
+    { text: content.heading, style: headingStyle },
+  ]);
+
+  if (note) {
+    writeText(canvas, "Footnote", frame.x, region.bottom - note.heightPx, frame.width, note.heightPx + 2, [
+      { text: content.note, style: noteStyle },
+    ]);
+  }
+
+  const areaTop = region.top + heading.heightPx + BODY_GAP;
+  const areaBottom = note ? region.bottom - note.heightPx - BODY_GAP : region.bottom;
+  const areaHeight = Math.max(DIAGRAM_MIN_HEIGHT, areaBottom - areaTop);
+  const scale = Math.min(frame.width / image.pixelWidth, areaHeight / image.pixelHeight);
+  const width = image.pixelWidth * scale;
+  const height = image.pixelHeight * scale;
+
+  canvas.shapes.push(
+    pictureXml({
+      id: canvas.nextId(),
+      name: "Diagram",
+      x: frame.x + (frame.width - width) / 2,
+      y: areaTop + (areaHeight - height) / 2,
+      width,
+      height,
+      relId: image.relId,
+    }),
+  );
+}
+
 /* -- slide --------------------------------------------------------------- */
 
 function backgroundFor(slide: Slide, palette: Palette): ShapeFill {
@@ -789,7 +1014,7 @@ function backgroundFor(slide: Slide, palette: Palette): ShapeFill {
   return slide.layout === "technical" ? palette.darkBackground : palette.card;
 }
 
-function renderSlideBody(canvas: SlideCanvas, slide: Slide): void {
+function renderSlideBody(canvas: SlideCanvas, slide: Slide, diagramImage: DiagramImage | null): void {
   switch (slide.layout) {
     case "title":
       renderCoverSlide(canvas, slide.content, slide.content.pills);
@@ -811,16 +1036,28 @@ function renderSlideBody(canvas: SlideCanvas, slide: Slide): void {
       return;
     case "technical":
       renderTechnicalSlide(canvas, slide.content);
+      return;
+    case "table":
+      renderTableSlide(canvas, slide.content);
+      return;
+    case "diagram":
+      renderDiagramSlide(canvas, slide.content, diagramImage);
+      return;
   }
 }
 
 /** One `<p:sld>` part: background, the layout's shapes, then the footer. */
-export function renderSlideXml(slide: Slide, deck: Deck, slideIndex: number): string {
+export function renderSlideXml(
+  slide: Slide,
+  deck: Deck,
+  slideIndex: number,
+  diagramImage: DiagramImage | null = null,
+): string {
   const palette = paletteForTheme(deck.theme);
   const canvas = createCanvas(frameForLayout(slide.layout), palette);
   const isDark = slide.layout === "technical";
 
-  renderSlideBody(canvas, slide);
+  renderSlideBody(canvas, slide, diagramImage);
   writeFooter(canvas, deck.footerLabel, slideIndex + 1, deck.slides.length, isDark);
 
   const namespaces =

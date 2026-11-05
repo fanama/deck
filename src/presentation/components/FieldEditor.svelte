@@ -65,6 +65,19 @@
       ></textarea>
       <span class="field-hint">{textValue(field.key).length} / {field.maxLength}</span>
     </label>
+  {:else if field.type === "select"}
+    <label class="field">
+      <span class="field-label">{field.label}</span>
+      <select
+        class="field-input"
+        value={textValue(field.key)}
+        onchange={(event) => onChange(fieldPath, event.currentTarget.value)}
+      >
+        {#each field.options as option (option.value)}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
   {:else if field.type === "list"}
     <div class="field-group">
       <div class="field-group-head">

@@ -82,6 +82,31 @@ export function shapeXml(spec: ShapeSpec): string {
   );
 }
 
+export interface PictureSpec {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Relationship id of the image part on this slide. */
+  relId: string;
+}
+
+/** A picture part placed on the slide, used by the diagram layout. */
+export function pictureXml(spec: PictureSpec): string {
+  const rect = clampRectToSlide(spec);
+
+  return (
+    `<p:pic><p:nvPicPr><p:cNvPr id="${spec.id}" name="${escapeHtml(spec.name)}"/>` +
+    `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
+    `<p:blipFill><a:blip r:embed="${spec.relId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
+    `<p:spPr><a:xfrm><a:off x="${toEmu(rect.x)}" y="${toEmu(rect.y)}"/>` +
+    `<a:ext cx="${toEmu(Math.max(1, rect.width))}" cy="${toEmu(Math.max(1, rect.height))}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`
+  );
+}
+
 /** A solid background for one slide, so exports keep the deck's own colours. */
 export function slideBackgroundXml(fill: ShapeFill): string {
   return `<p:bg><p:bgPr>${fillXml(fill)}<a:effectLst/></p:bgPr></p:bg>`;

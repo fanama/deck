@@ -275,6 +275,74 @@ a:focus-visible {
   cursor: pointer;
 }
 
+.panel-library {
+  flex: 0 0 auto;
+  max-height: 210px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--line);
+}
+
+.deck-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+}
+
+.deck-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  border-left: 2px solid transparent;
+}
+
+.deck-row.is-selected {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.deck-select {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.deck-title {
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-meta {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.deck-add {
+  padding: 8px 16px 10px;
+}
+
+.deck-add .button {
+  width: 100%;
+}
+
 .panel-slides {
   flex: 1;
   min-height: 0;
@@ -423,6 +491,67 @@ a:focus-visible {
   top: 50%;
   width: 1280px;
   height: 720px;
+}
+
+/* In-place text editing: an affordance for the studio, not for the export. */
+.preview-stage .slide-text[contenteditable="true"] {
+  cursor: text;
+  outline: none;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px transparent;
+  transition: box-shadow 120ms ease;
+}
+
+.preview-stage .slide-text[contenteditable="true"]:hover {
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+
+.preview-stage .slide-text[contenteditable="true"]:focus {
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3px var(--accent);
+}
+
+.preview-stage .slide-text[contenteditable="true"]:empty::before {
+  content: "…";
+  color: var(--muted);
+}
+
+/* Renaming a diagram box: an input laid exactly over the drawn box. */
+.preview-stage .diagram {
+  position: relative;
+}
+
+/* Link controls exist only in the studio; the export draws plain arrows. */
+.preview-stage .diagram-connector {
+  cursor: crosshair;
+}
+
+.preview-stage .diagram-connector.is-pending circle {
+  stroke-width: 4;
+}
+
+.preview-stage .diagram-link-hit {
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.preview-stage .diagram-box.is-link-target path {
+  stroke-dasharray: 6 4;
+}
+
+.diagram-label-input {
+  position: absolute;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 4px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-family: Georgia, serif;
+  line-height: 1.2;
+  text-align: center;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .preview-controls {

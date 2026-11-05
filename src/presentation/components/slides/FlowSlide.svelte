@@ -1,26 +1,40 @@
 <script lang="ts">
   import type { FlowSlideContent } from "../../../domain/deck/slideTypes.ts";
+  import EditableText from "../EditableText.svelte";
 
   let { content }: { content: FlowSlideContent } = $props();
 </script>
 
-<div class="eyebrow">{content.eyebrow}</div>
+<EditableText as="div" class="eyebrow" path={["eyebrow"]} value={content.eyebrow} />
 
 <div class="body">
-  <h2>{content.heading}</h2>
+  <EditableText as="h2" path={["heading"]} value={content.heading} />
 
   <div class="lanes">
     {#each content.lanes as lane, laneIndex (laneIndex)}
       <div class="lane">
-        <div class="lane-label">{lane.label}</div>
+        <EditableText
+          as="div"
+          class="lane-label"
+          path={["lanes", laneIndex, "label"]}
+          value={lane.label}
+        />
         <div class="row">
           {#each lane.nodes as node, nodeIndex (nodeIndex)}
             {#if nodeIndex > 0}
               <div class="arrow">→</div>
             {/if}
             <div class="node">
-              <strong>{node.title}</strong>
-              <span>{node.detail}</span>
+              <EditableText
+                as="strong"
+                path={["lanes", laneIndex, "nodes", nodeIndex, "title"]}
+                value={node.title}
+              />
+              <EditableText
+                as="span"
+                path={["lanes", laneIndex, "nodes", nodeIndex, "detail"]}
+                value={node.detail}
+              />
             </div>
           {/each}
         </div>
@@ -29,6 +43,6 @@
   </div>
 
   {#if content.note}
-    <p class="note">{content.note}</p>
+    <EditableText as="p" class="note" path={["note"]} value={content.note} />
   {/if}
 </div>

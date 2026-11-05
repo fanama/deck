@@ -74,6 +74,13 @@ export function findDeckProblems(deck: Deck): DeckProblem[] {
       });
     }
 
+    if (slide.layout === "diagram" && slide.content.boxes.length === 0) {
+      problems.push({
+        severity: "warning",
+        message: `Slide ${slideNumber} (${layoutLabel}): the diagram has no boxes.`,
+      });
+    }
+
     const longBlockTexts: LongBlockText[] = [];
     collectLongBlockTexts(slide.content, [], longBlockTexts);
 

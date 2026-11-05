@@ -1,12 +1,13 @@
 import { createNewDeck, createStarterDeck } from "../../application/createStarterDeck.ts";
 import { exportDeckAsHtmlFile } from "../../application/exportDeckAsHtmlFile.ts";
 import { exportDeckAsPptxFile } from "../../application/exportDeckAsPptxFile.ts";
-import { loadSavedDeck } from "../../application/loadSavedDeck.ts";
+import { loadSavedLibrary } from "../../application/loadSavedDecks.ts";
 import { parseDeckFileText } from "../../application/parseDeckFileText.ts";
-import { saveDeck } from "../../application/saveDeck.ts";
+import { saveDeckLibrary } from "../../application/saveDeckLibrary.ts";
 import {
   appendSlideContentItem,
   createBlankSlide,
+  duplicateDeck,
   duplicateSlideById,
   findSlideById,
   findSlideIndexById,
@@ -23,8 +24,9 @@ import {
 import { findDeckProblems } from "../../domain/deck/deckProblems.ts";
 import { createEmptyListItem, findSlideLayout } from "../../domain/deck/slideLayoutCatalog.ts";
 import type { ContentPath, Deck, Slide, SlideLayoutId } from "../../domain/deck/slideTypes.ts";
-import type { DeckRepository } from "../../domain/ports/deckRepositoryPort.ts";
+import type { DeckLibrary, DeckRepository } from "../../domain/ports/deckRepositoryPort.ts";
 import { downloadBinaryFile } from "../../infrastructure/browser/downloadBinaryFile.ts";
+import { rasteriseSvgToPng } from "../../infrastructure/browser/rasteriseSvgToPng.ts";
 import { enterFullscreen, exitFullscreen } from "../../infrastructure/browser/fullscreen.ts";
 import { downloadTextFile } from "../../infrastructure/browser/downloadTextFile.ts";
 import { createHtmlDeckExporter } from "../../infrastructure/export/htmlDeckExporter.ts";
@@ -38,10 +40,12 @@ export interface StudioNotice {
 
 const deckRepository: DeckRepository = createLocalStorageDeckRepository();
 const deckExporter = createHtmlDeckExporter();
-const pptxExporter = createPptxDeckExporter();
+const pptxExporter = createPptxDeckExporter({ rasteriseSvg: rasteriseSvgToPng });
 
-const savedDeck = loadSavedDeck(deckRepository);
-const initialDeck = savedDeck ?? createStarterDeck();
+const savedLibrary = loadSavedLibrary(deckRepository);
+const initialDecks: Deck[] = savedLibrary ? savedLibrary.decks : [createStarterDeck()];
+const initialDeck: Deck =
+  initialDecks.find((deck) => deck.id === savedLibrary?.activeDeckId) ?? initialDecks[0] ?? createStarterDeck();
 
 /**
  * The studio's presentation state. It owns the current deck, the selection,
@@ -49,9 +53,10 @@ const initialDeck = savedDeck ?? createStarterDeck();
  * so this class never edits deck data itself.
  */
 export class PresentationStudio {
+  decks = $state<Deck[]>(initialDecks);
   deck = $state<Deck>(initialDeck);
   selectedSlideId = $state<string>(initialDeck.slides[0]?.id ?? "");
-  isSaved = $state<boolean>(savedDeck !== null);
+  isSaved = $state<boolean>(savedLibrary !== null);
   notice = $state<StudioNotice | null>(null);
   isPresenting = $state<boolean>(false);
 
@@ -71,6 +76,44 @@ export class PresentationStudio {
 
   selectSlide(slideId: string): void {
     this.selectedSlideId = slideId;
+  }
+
+  /** Switches the open deck; the library keeps the other ones untouched. */
+  selectDeck(deckId: string): void {
+    if (deckId === this.deck.id) return;
+
+    this.syncActiveDeck();
+    const target = this.decks.find((deck) => deck.id === deckId);
+    if (!target) return;
+
+    this.deck = target;
+    this.selectedSlideId = target.slides[0]?.id ?? "";
+    this.isSaved = false;
+    this.notice = null;
+  }
+
+  /** Removes one deck; the library always keeps at least one. */
+  deleteDeck(deckId: string): void {
+    if (this.decks.length <= 1) {
+      this.showNotice("error", "A library keeps at least one deck; add another one before deleting this one.");
+      return;
+    }
+
+    const removed = this.decks.find((deck) => deck.id === deckId);
+    if (!removed) return;
+
+    this.decks = this.decks.filter((deck) => deck.id !== deckId);
+
+    if (this.deck.id === deckId) {
+      const nextDeck = this.decks[0];
+      if (nextDeck) {
+        this.deck = nextDeck;
+        this.selectedSlideId = nextDeck.slides[0]?.id ?? "";
+      }
+    }
+
+    this.isSaved = false;
+    this.showNotice("success", `Removed “${removed.title || "Untitled deck"}”.`);
   }
 
   openSlideAt(index: number): void {
@@ -168,6 +211,16 @@ export class PresentationStudio {
     this.markChanged();
   }
 
+  /** Moves one diagram box; the preview calls this when a drag ends. */
+  moveDiagramBox(boxIndex: number, position: { x: number; y: number }): void {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram") return;
+
+    const movedHorizontally = updateSlideContentAtPath(this.deck, slide.id, ["boxes", boxIndex, "x"], position.x);
+    this.deck = updateSlideContentAtPath(movedHorizontally, slide.id, ["boxes", boxIndex, "y"], position.y);
+    this.markChanged();
+  }
+
   appendSlideListItem(listFieldPath: ContentPath): void {
     if (!this.selectedSlide) return;
     const emptyItem = createEmptyListItem(this.selectedSlide.layout, listFieldPath);
@@ -187,11 +240,14 @@ export class PresentationStudio {
     this.markChanged();
   }
 
+  /** Adds a fresh deck to the library and opens it; the others are kept. */
   startNewDeck(): void {
-    this.deck = createNewDeck();
-    this.selectSlide(this.deck.slides[0].id);
+    const deck = createNewDeck(`Untitled deck ${this.decks.length + 1}`);
+    this.decks = [...this.decks, deck];
+    this.deck = deck;
+    this.selectSlide(deck.slides[0]?.id ?? "");
     this.markChanged();
-    this.showNotice("success", "Started a new deck. The saved deck is replaced on the next save.");
+    this.showNotice("success", "Added a new deck; the others stay in the library.");
   }
 
   importDeckFromText(fileText: string): void {
@@ -203,17 +259,23 @@ export class PresentationStudio {
     }
 
     const slideCount = parsed.deck.slides.length;
-    this.deck = parsed.deck;
-    this.selectSlide(parsed.deck.slides[0]?.id ?? "");
+    // A deck imported twice would collide on its id, so the second copy gets a new one.
+    const imported = this.decks.some((deck) => deck.id === parsed.deck.id)
+      ? duplicateDeck(parsed.deck)
+      : parsed.deck;
+
+    this.decks = [...this.decks, imported];
+    this.deck = imported;
+    this.selectSlide(imported.slides[0]?.id ?? "");
     this.markChanged();
     this.showNotice(
       "success",
-      `Imported ${parsed.deck.title} — ${slideCount} slide${slideCount === 1 ? "" : "s"}.`,
+      `Imported ${imported.title} — ${slideCount} slide${slideCount === 1 ? "" : "s"} added to the library.`,
     );
   }
 
-  saveDeckSnapshot(deckSnapshot: Deck): void {
-    const result = saveDeck(deckRepository, deckSnapshot);
+  saveLibrarySnapshot(library: DeckLibrary): void {
+    const result = saveDeckLibrary(deckRepository, library);
 
     if (result.ok) {
       this.isSaved = true;
@@ -224,7 +286,12 @@ export class PresentationStudio {
   }
 
   saveNow(): void {
-    const result = saveDeck(deckRepository, $state.snapshot(this.deck));
+    this.syncActiveDeck();
+    const library = $state.snapshot({
+      decks: this.decks,
+      activeDeckId: this.deck.id,
+    }) as DeckLibrary;
+    const result = saveDeckLibrary(deckRepository, library);
 
     if (!result.ok) {
       this.showNotice("error", result.message);
@@ -232,7 +299,7 @@ export class PresentationStudio {
     }
 
     this.isSaved = true;
-    this.showNotice("success", "Deck saved in this browser.");
+    this.showNotice("success", "Deck library saved in this browser.");
   }
 
   exportCurrentDeck(): void {
@@ -250,23 +317,28 @@ export class PresentationStudio {
     this.showNotice("success", `Exported ${result.fileName} — one file, no dependencies.`);
   }
 
-  exportCurrentDeckAsPptx(): void {
-    const result = exportDeckAsPptxFile({
-      deckPptxExporter: pptxExporter,
-      deck: $state.snapshot(this.deck),
-    });
+  async exportCurrentDeckAsPptx(): Promise<void> {
+    try {
+      const result = await exportDeckAsPptxFile({
+        deckPptxExporter: pptxExporter,
+        deck: $state.snapshot(this.deck),
+      });
 
-    if (!result.ok) {
-      this.showNotice("error", "Fix the blocking problems in the inspector before exporting.");
-      return;
+      if (!result.ok) {
+        this.showNotice("error", "Fix the blocking problems in the inspector before exporting.");
+        return;
+      }
+
+      downloadBinaryFile({
+        fileName: result.fileName,
+        bytes: result.bytes,
+        mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      });
+      this.showNotice("success", `Exported ${result.fileName} — editable text and shapes.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.showNotice("error", `The PPTX could not be written: ${message}`);
     }
-
-    downloadBinaryFile({
-      fileName: result.fileName,
-      bytes: result.bytes,
-      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    });
-    this.showNotice("success", `Exported ${result.fileName} — editable text and shapes.`);
   }
 
   showNotice(kind: StudioNotice["kind"], message: string): void {
@@ -278,6 +350,16 @@ export class PresentationStudio {
   }
 
   markChanged(): void {
+    this.syncActiveDeck();
     this.isSaved = false;
+  }
+
+  /** Mirrors the open deck into the library so the list and the save see it. */
+  private syncActiveDeck(): void {
+    const snapshot = $state.snapshot(this.deck) as Deck;
+    const index = this.decks.findIndex((deck) => deck.id === snapshot.id);
+
+    if (index === -1) this.decks = [...this.decks, snapshot];
+    else this.decks[index] = snapshot;
   }
 }

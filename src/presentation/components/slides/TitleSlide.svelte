@@ -1,20 +1,21 @@
 <script lang="ts">
   import type { TitleSlideContent } from "../../../domain/deck/slideTypes.ts";
+  import EditableText from "../EditableText.svelte";
 
   let { content }: { content: TitleSlideContent } = $props();
 </script>
 
-<div class="eyebrow">{content.eyebrow}</div>
+<EditableText as="div" class="eyebrow" path={["eyebrow"]} value={content.eyebrow} />
 
 <div class="title-grid" style="flex: 1; align-items: center;">
   <div>
-    <h1>{content.heading}</h1>
-    <p class="lede">{content.lede}</p>
+    <EditableText as="h1" path={["heading"]} value={content.heading} />
+    <EditableText as="p" class="lede" path={["lede"]} value={content.lede} />
 
     {#if content.pills.length > 0}
       <div class="pills" style="margin-top: 26px;">
         {#each content.pills as pill, index (index)}
-          <span class="pill">{pill}</span>
+          <EditableText as="span" class="pill" path={["pills", index]} value={pill} />
         {/each}
       </div>
     {/if}
@@ -24,8 +25,8 @@
     <dl class="kv">
       {#each content.meta as row, index (index)}
         <div>
-          <dt>{row.label}</dt>
-          <dd>{row.value}</dd>
+          <EditableText as="dt" path={["meta", index, "label"]} value={row.label} />
+          <EditableText as="dd" path={["meta", index, "value"]} value={row.value} />
         </div>
       {/each}
     </dl>

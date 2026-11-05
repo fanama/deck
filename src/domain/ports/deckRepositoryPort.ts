@@ -1,18 +1,25 @@
 import type { Deck } from "../deck/slideTypes.ts";
 
 /**
- * The persistence port the domain and application layers depend on.
+ * The persistence port the domain and application layers depend on. A browser
+ * holds a library of decks rather than a single document, so one save covers
+ * every deck and which one is open.
  */
-export interface DeckRepository {
-  /** Persists the whole deck. */
-  saveDeck(deck: Deck): void;
-  /** Returns the stored deck value, or null when nothing is stored. */
-  loadDeck(): unknown;
-  /** Removes the stored deck. */
-  clearDeck(): void;
+export interface DeckLibrary {
+  decks: Deck[];
+  activeDeckId: string;
 }
 
-const REQUIRED_METHODS = ["saveDeck", "loadDeck", "clearDeck"] as const;
+export interface DeckRepository {
+  /** Persists the whole library, including the active deck id. */
+  saveLibrary(library: DeckLibrary): void;
+  /** Returns the stored library value, or null when nothing is stored. */
+  loadLibrary(): unknown;
+  /** Removes the library (and any deck saved by an earlier single-deck build). */
+  clearAll(): void;
+}
+
+const REQUIRED_METHODS = ["saveLibrary", "loadLibrary", "clearAll"] as const;
 
 /** Fails loudly when an adapter does not honour the port. */
 export function assertImplementsDeckRepository(repository: DeckRepository): DeckRepository {

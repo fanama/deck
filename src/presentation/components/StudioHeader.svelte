@@ -51,7 +51,7 @@
     <button class="button" type="button" title="Present (P)" onclick={() => studio.startPresenting()}>
       Present
     </button>
-    <button class="button" type="button" onclick={() => studio.exportCurrentDeckAsPptx()}>
+    <button class="button" type="button" onclick={() => void studio.exportCurrentDeckAsPptx()}>
       Export PPTX
     </button>
     <button class="button primary" type="button" onclick={() => studio.exportCurrentDeck()}>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { buildDeckThemeVariables, toStyleAttributeValue } from "./domain/deck/deckTheme.ts";
+  import type { DeckLibrary } from "./domain/ports/deckRepositoryPort.ts";
   import DeckDetailsPanel from "./presentation/components/DeckDetailsPanel.svelte";
+  import DeckLibraryPanel from "./presentation/components/DeckLibraryPanel.svelte";
   import InspectorPanel from "./presentation/components/InspectorPanel.svelte";
   import NoticeBar from "./presentation/components/NoticeBar.svelte";
   import PresentationOverlay from "./presentation/components/PresentationOverlay.svelte";
@@ -16,12 +18,16 @@
 
   let themeStyle = $derived(toStyleAttributeValue(buildDeckThemeVariables(studio.deck.theme)));
 
-  // Autosave: debounce every deck change into one browser write.
+  // Autosave: debounce every library change (any deck, or the open one) into
+  // one browser write.
   $effect(() => {
-    const deckSnapshot: unknown = $state.snapshot(studio.deck);
+    const librarySnapshot = $state.snapshot({
+      decks: studio.decks,
+      activeDeckId: studio.deck.id,
+    }) as DeckLibrary;
     if (studio.isSaved) return;
 
-    const saveTimer = setTimeout(() => studio.saveDeckSnapshot(deckSnapshot as typeof studio.deck), 600);
+    const saveTimer = setTimeout(() => studio.saveLibrarySnapshot(librarySnapshot), 600);
     return () => clearTimeout(saveTimer);
   });
 
@@ -108,6 +114,7 @@
     <main class="studio-main">
       <aside class="studio-column studio-column-left">
         <DeckDetailsPanel {studio} />
+        <DeckLibraryPanel {studio} />
         <SlideListPanel {studio} />
       </aside>
 
@@ -117,6 +124,8 @@
           slide={studio.selectedSlide}
           slideNumber={studio.selectedSlideIndex + 1}
           totalSlides={studio.deck.slides.length}
+          onDiagramBoxMove={(index, position) => studio.moveDiagramBox(index, position)}
+          onSlideTextChange={(path, value) => studio.updateSlideField(path, value)}
         />
 
         <div class="preview-controls">

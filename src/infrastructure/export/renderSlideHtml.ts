@@ -2,16 +2,19 @@ import { slideShellClassForLayout } from "../../domain/deck/slideLayoutCatalog.t
 import type {
   CardsSlideContent,
   ClosingSlideContent,
+  DiagramSlideContent,
   FlowLane,
   FlowSlideContent,
   MetaRow,
   RulesSlideContent,
   Slide,
   StatementSlideContent,
+  TableSlideContent,
   TechnicalSlideContent,
   TitleSlideContent,
 } from "../../domain/deck/slideTypes.ts";
 import { escapeHtml } from "../../shared/escapeHtml.ts";
+import { buildDiagramSvg, DIAGRAM_COLORS } from "../../shared/diagramSvg.ts";
 
 function renderEyebrow(eyebrow: string): string {
   return `      <div class="eyebrow">${escapeHtml(eyebrow)}</div>`;
@@ -198,7 +201,72 @@ function renderTechnicalSlideBody(content: TechnicalSlideContent): string {
     .join("\n");
 }
 
-function renderSlideBody(slide: Slide): string {
+function renderTableSlideBody(content: TableSlideContent): string {
+  const headerCells = content.columns
+    .map((column) => `<th>${escapeHtml(column)}</th>`)
+    .join("");
+
+  const rowsHtml = content.rows
+    .map((row) => {
+      const cellsHtml = content.columns
+        .map((_column, columnIndex) => `<td>${escapeHtml(row.cells[columnIndex] ?? "")}</td>`)
+        .join("");
+      const detailHtml = row.detail
+        ? `\n              <span class="row-detail">${escapeHtml(row.detail)}</span>`
+        : "";
+
+      return `            <tr>
+              <td>
+                <span class="row-label">${escapeHtml(row.label)}</span>${detailHtml}
+              </td>${cellsHtml}
+            </tr>`;
+    })
+    .join("\n");
+
+  return [
+    renderEyebrow(content.eyebrow),
+    `      <div class="body">`,
+    `        <h2>${escapeHtml(content.heading)}</h2>`,
+    `        <table class="table">`,
+    `          <thead>`,
+    `            <tr><th>${escapeHtml(content.rowHeader)}</th>${headerCells}</tr>`,
+    `          </thead>`,
+    `          <tbody>`,
+    rowsHtml,
+    `          </tbody>`,
+    `        </table>`,
+    renderFootnote(content.note),
+    `      </div>`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function renderDiagramSlideBody(content: DiagramSlideContent, accentColor: string): string {
+  const markup =
+    content.boxes.length > 0
+      ? buildDiagramSvg({
+          boxes: content.boxes,
+          links: content.links,
+          title: content.heading,
+          colors: { ...DIAGRAM_COLORS, accent: accentColor },
+          routing: content.routing,
+        })
+      : "";
+
+  return [
+    renderEyebrow(content.eyebrow),
+    `      <div class="body">`,
+    `        <h2>${escapeHtml(content.heading)}</h2>`,
+    markup ? `        <div class="diagram">${markup}</div>` : "",
+    renderFootnote(content.note),
+    `      </div>`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function renderSlideBody(slide: Slide, accentColor: string): string {
   switch (slide.layout) {
     case "title":
       return renderTitleSlideBody(slide.content);
@@ -212,6 +280,10 @@ function renderSlideBody(slide: Slide): string {
       return renderStatementSlideBody(slide.content);
     case "technical":
       return renderTechnicalSlideBody(slide.content);
+    case "table":
+      return renderTableSlideBody(slide.content);
+    case "diagram":
+      return renderDiagramSlideBody(slide.content, accentColor);
     case "closing":
       return renderClosingSlideBody(slide.content);
   }
@@ -223,6 +295,8 @@ export interface RenderSlideSectionInput {
   totalSlides: number;
   footerLabel: string;
   isActive: boolean;
+  /** Normalised deck accent, used by layouts that draw their own colours. */
+  accentColor: string;
 }
 
 /** One section of the exported document, mirroring the preview component. */
@@ -232,11 +306,12 @@ export function renderSlideSectionHtml({
   totalSlides,
   footerLabel,
   isActive,
+  accentColor,
 }: RenderSlideSectionInput): string {
   const activeClass = isActive ? " active" : "";
 
   return `    <section class="${slideShellClassForLayout(slide.layout)}${activeClass}">
-${renderSlideBody(slide)}
+${renderSlideBody(slide, accentColor)}
       <div class="footer"><span>${escapeHtml(footerLabel)}</span><span>${slideNumber} / ${totalSlides}</span></div>
     </section>`;
 }

@@ -35,7 +35,7 @@ function relationships(entries: string): string {
   return `${XML_HEADER}<Relationships xmlns="${NS_REL}">${entries}</Relationships>`;
 }
 
-export function contentTypesXml(slideCount: number): string {
+export function contentTypesXml(slideCount: number, hasImages = false): string {
   const slideOverrides = Array.from(
     { length: slideCount },
     (_, index) =>
@@ -46,6 +46,7 @@ export function contentTypesXml(slideCount: number): string {
     `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
     `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
     `<Default Extension="xml" ContentType="application/xml"/>` +
+    (hasImages ? `<Default Extension="png" ContentType="image/png"/>` : "") +
     `<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>` +
     `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>` +
     `<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>` +
@@ -161,8 +162,12 @@ export function slideLayoutRelationshipsXml(): string {
   return relationships(relationship("rId1", "slideMaster", "../slideMasters/slideMaster1.xml"));
 }
 
-export function slideRelationshipsXml(): string {
-  return relationships(relationship("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml"));
+/** `imageTarget` is the media part this slide shows, if its layout has one. */
+export function slideRelationshipsXml(imageTarget?: string): string {
+  return relationships(
+    relationship("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml") +
+      (imageTarget ? relationship("rId2", "image", imageTarget) : ""),
+  );
 }
 
 const THEME_FILLS = `<a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>` +

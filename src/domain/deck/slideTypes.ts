@@ -1,4 +1,13 @@
-export type SlideLayoutId = "title" | "cards" | "flow" | "rules" | "statement" | "technical" | "closing";
+export type SlideLayoutId =
+  | "title"
+  | "cards"
+  | "flow"
+  | "rules"
+  | "statement"
+  | "technical"
+  | "table"
+  | "diagram"
+  | "closing";
 
 export interface MetaRow {
   label: string;
@@ -24,6 +33,12 @@ export interface FlowLane {
 export interface RuleItem {
   marker: string;
   statement: string;
+}
+
+export interface TableRow {
+  label: string;
+  detail: string;
+  cells: string[];
 }
 
 export interface TitleSlideContent {
@@ -72,6 +87,51 @@ export interface TechnicalSlideContent {
   note: string;
 }
 
+export interface TableSlideContent {
+  eyebrow: string;
+  heading: string;
+  rowHeader: string;
+  columns: string[];
+  rows: TableRow[];
+  note: string;
+}
+
+export type DiagramShape = "box" | "ellipse" | "diamond" | "cylinder";
+
+/** Colour treatment of one box, independent of the deck accent. */
+export type DiagramTone = "accent" | "emphasis" | "ink" | "muted" | "warm";
+
+export interface DiagramBox {
+  /** Stable across reordering and dragging; links point at it. */
+  id: string;
+  shape: DiagramShape;
+  tone: DiagramTone;
+  label: string;
+  /** Top-left corner of the shape's box, in the drawing's own 1000×440 units. */
+  x: number;
+  y: number;
+}
+
+export interface DiagramLink {
+  /** Ids of the two boxes the arrow joins. */
+  from: string;
+  to: string;
+}
+
+/** How the arrows in one diagram are drawn between their anchors. */
+export type DiagramRouting = "straight" | "elbow";
+
+export interface DiagramSlideContent {
+  eyebrow: string;
+  heading: string;
+  /** Straight segments, or right angles like draw.io's orthogonal links. */
+  routing: DiagramRouting;
+  boxes: DiagramBox[];
+  /** Arrows are a list of links, so any two boxes can be joined. */
+  links: DiagramLink[];
+  note: string;
+}
+
 export interface ClosingSlideContent {
   eyebrow: string;
   heading: string;
@@ -87,6 +147,8 @@ export interface SlideContentByLayout {
   rules: RulesSlideContent;
   statement: StatementSlideContent;
   technical: TechnicalSlideContent;
+  table: TableSlideContent;
+  diagram: DiagramSlideContent;
   closing: ClosingSlideContent;
 }
 

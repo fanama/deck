@@ -13,13 +13,13 @@ export type ExportPptxResult =
  * blocking problems that stop an HTML export stop this one, so a deck that
  * cannot be exported is reported once, in one place.
  */
-export function exportDeckAsPptxFile({
+export async function exportDeckAsPptxFile({
   deckPptxExporter,
   deck,
 }: {
   deckPptxExporter: DeckPptxExporter;
   deck: Deck;
-}): ExportPptxResult {
+}): Promise<ExportPptxResult> {
   const problems = findDeckProblems(deck);
 
   if (hasBlockingProblems(problems)) {
@@ -29,7 +29,7 @@ export function exportDeckAsPptxFile({
   return {
     ok: true,
     problems,
-    bytes: deckPptxExporter.exportDeckToPptx(deck),
+    bytes: await deckPptxExporter.exportDeckToPptx(deck),
     fileName: `${toFileNameSlug(deck.title)}.pptx`,
   };
 }

@@ -17,9 +17,11 @@ npm run check    # svelte-check: components + TS modules, strict
 npm run build    # static build in dist/
 ```
 
-The studio keeps your deck in `localStorage` (key `deck-studio.deck.v1`) and
-autosaves shortly after every change. **Export HTML** downloads the deck; the
-file name comes from the deck title.
+The studio keeps a **library of decks** in `localStorage` (key
+`deck-studio.library.v1`) and autosaves shortly after every change. A library
+written by an earlier single-deck build (`deck-studio.deck.v1`) is read once
+and becomes the first deck. **Export HTML** downloads the open deck; the file
+name comes from its title.
 
 ## What the studio does
 
@@ -29,7 +31,24 @@ source on GitHub (`github.com/fanama`) from the header. **Open the studio** (or
 `Enter`) enters the editor, and the brand in the studio header brings you back
 to the welcome page without losing the deck.
 
-- Seven layouts — Title, Cards, Flow, Rules, Statement, Technical, Closing.
+- Nine layouts — Title, Cards, Flow, Rules, Statement, Technical, Table,
+  Diagram, Closing — and a starter deck that is a tour of them: one slide per
+  layout, each saying what the layout is for.
+- Several decks at once: the **Decks** panel lists what this browser holds,
+  switches the open one and deletes one; **New deck** adds another without
+  replacing anything. Each deck keeps its own slides, title and accent.
+- A **Diagram** slide is edited by dragging: boxes move in the preview (arrow
+  keys nudge a focused one), double-click renames one, and arrows are drawn by
+  dragging from one of a box's four dots — top, right, bottom, left — onto
+  another box. Each arrow leaves from the side nearest its target and lands on
+  the nearest side of that target, the way draw.io resolves a straight floating  connection. **Arrows** in the inspector draws every arrow either straight or
+  as a 90° elbow, mid-way between the two boxes. Click an arrow to remove it;
+  from the keyboard, `Enter` on a dot then `Enter` on the target box links the
+  two. Each box is a rectangle, a circle, a diamond or a cylinder, with its own
+  colour tone — accent by default, plus emphasis (a filled box), ink, muted and
+  warm — both chosen in the inspector. The drawing is generated as SVG, so the
+  HTML export stays vector; the PPTX export rasterises it, because PowerPoint
+  pictures must be bitmaps there.
 - A schema-driven inspector: each layout declares its fields, so text, lists
   and nested lists are all edited through the same component.
 - A 1280×720 preview that uses the same stylesheet as the export, so what you
@@ -40,7 +59,8 @@ to the welcome page without losing the deck.
   over-long headings and blocks warn.
 - **Import deck** reads a `.json` deck file or any HTML file this studio
   exported — the deck data travels inside the exported document, so the file
-  you sent is the file you can edit again.
+  you sent is the file you can edit again. An imported deck joins the library;
+  importing the same deck twice gives the second copy a fresh id.
 - **Present** from the studio (button, or `P`): the deck fills the screen on
   its own 1280×720 stage, with a progress bar and counter. Arrows, space,
   Page Up/Down and Home/End move, `Esc` returns to editing, and the page goes
@@ -79,12 +99,12 @@ src/
 │   ├── deckTheme.ts             theme value object, colour mixing, CSS vars
 │   └── deckProblems.ts          validation rules (errors vs warnings)
 ├── domain/ports/
-│   ├── deckRepositoryPort.ts    saveDeck / loadDeck / clearDeck
+│   ├── deckRepositoryPort.ts    DeckLibrary: saveLibrary / loadLibrary / clearAll
 │   └── deckExporterPort.ts      exportDeckToHtml
 ├── application/
-│   ├── createStarterDeck.ts     starter deck + createNewDeck
-│   ├── loadSavedDeck.ts         restore through the repository port
-│   ├── saveDeck.ts              persist, report instead of throw
+│   ├── createStarterDeck.ts     layout-tour starter deck + createNewDeck
+│   ├── loadSavedDecks.ts        restore every deck through the port
+│   ├── saveDeckLibrary.ts       persist the library, report instead of throw
 │   └── exportDeckAsHtmlFile.ts  validate, export, name the file
 ├── infrastructure/
 │   ├── persistence/localStorageDeckRepository.ts
@@ -127,8 +147,16 @@ declares, at any nesting depth.
 
 ## Limits worth knowing
 
-- One deck per browser profile; there is no multi-deck library yet.
-- Text is plain — no bold, links or images inside a slide.
+- The library lives in one browser profile: no account, no sync, no folders.
+  Decks are added and deleted whole; there is no duplicate-deck command beyond
+  **New deck**.
+- Text is plain — no bold or links inside a slide.
+- A diagram lives on one slide: six boxes, each at its shape's fixed size (a
+  circle stays round, a diamond stays wider than tall), labels of up to 40
+  characters wrapped to three lines, and arrows with no label of their own.
+  Arrows are explicit links, so one box can feed several others.
+- Box colours are five fixed tones rather than an arbitrary colour picker, so a
+  diagram keeps matching whatever accent the deck uses.
 - Slide content is capped by the schema (headings ~100 characters, cards 4,
   lanes 3, nodes per lane 5) to keep the 1280×720 stage readable.
 - Import recognises deck data embedded by this studio. An HTML deck exported
@@ -136,4 +164,6 @@ declares, at any nesting depth.
 - The PPTX uses one master and one blank layout with absolutely positioned
   text, so a paragraph edited long enough to rewrap can push past its
   neighbour. Fonts travel by name (Georgia, Arial, Consolas), not embedded.
+  Diagram slides are the one rasterised element: the SVG is drawn to a PNG
+  when the file is written, so it is a picture in PowerPoint, not shapes.
 - There is no PDF writer; print the exported HTML instead.

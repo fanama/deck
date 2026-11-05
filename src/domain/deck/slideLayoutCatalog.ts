@@ -1,3 +1,12 @@
+import {
+  createDiagramBoxId,
+  DIAGRAM_SHAPE_LABELS,
+  DIAGRAM_SHAPES,
+  DIAGRAM_ROUTING_LABELS,
+  DIAGRAM_ROUTINGS,
+  DIAGRAM_TONE_LABELS,
+  DIAGRAM_TONES,
+} from "../../shared/diagramSvg.ts";
 import type {
   ContentPath,
   SlideContentByLayout,
@@ -38,7 +47,22 @@ export interface ListFieldDefinition extends BaseFieldDefinition {
   createEmptyItem?: () => ListItemValue;
 }
 
-export type FieldDefinition = TextFieldDefinition | TextareaFieldDefinition | ListFieldDefinition;
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
+export interface SelectFieldDefinition extends BaseFieldDefinition {
+  type: "select";
+  defaultValue: string;
+  options: SelectOption[];
+}
+
+export type FieldDefinition =
+  | TextFieldDefinition
+  | TextareaFieldDefinition
+  | ListFieldDefinition
+  | SelectFieldDefinition;
 
 export interface SlideLayoutDefinition {
   id: SlideLayoutId;
@@ -46,6 +70,8 @@ export interface SlideLayoutDefinition {
   purpose: string;
   shellClass: string;
   fields: FieldDefinition[];
+  /** Content with no inspector field, e.g. the links drawn in the preview. */
+  extraDefaults?: Record<string, unknown>;
 }
 
 type TextFieldOptions = Partial<Pick<TextFieldDefinition, "maxLength" | "defaultValue">>;
@@ -53,7 +79,7 @@ type TextListOptions = Partial<
   Pick<ListFieldDefinition, "itemLabel" | "maxItems" | "defaultItems" | "createEmptyItem">
 >;
 type GroupListOptions = Partial<
-  Pick<ListFieldDefinition, "itemLabel" | "maxItems" | "defaultItems" | "itemFields">
+  Pick<ListFieldDefinition, "itemLabel" | "maxItems" | "defaultItems" | "itemFields" | "createEmptyItem">
 >;
 
 function textField(key: string, label: string, options: TextFieldOptions = {}): TextFieldDefinition {
@@ -62,6 +88,15 @@ function textField(key: string, label: string, options: TextFieldOptions = {}): 
 
 function longTextField(key: string, label: string, options: TextFieldOptions = {}): TextareaFieldDefinition {
   return { key, label, type: "textarea", maxLength: 260, defaultValue: "", ...options };
+}
+
+function selectField(
+  key: string,
+  label: string,
+  options: SelectOption[],
+  defaultValue: string,
+): SelectFieldDefinition {
+  return { key, label, type: "select", maxLength: 40, options, defaultValue };
 }
 
 function textListField(key: string, label: string, options: TextListOptions = {}): ListFieldDefinition {
@@ -273,6 +308,88 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
     ],
   },
   {
+    id: "table",
+    label: "Table",
+    purpose: "A comparison grid: one labelled column, up to three evidence columns.",
+    shellClass: "slide",
+    fields: [
+      textField("eyebrow", "Eyebrow", { defaultValue: "COMPARISON", maxLength: 80 }),
+      textField("heading", "Heading", {
+        defaultValue: "What changes, column by column.",
+        maxLength: 100,
+      }),
+      textField("rowHeader", "First column header", { defaultValue: "Item", maxLength: 40 }),
+      textListField("columns", "Column headers", {
+        itemLabel: "Column",
+        maxItems: 3,
+        defaultItems: ["Today", "With the change"],
+      }),
+      groupListField("rows", "Rows", {
+        itemLabel: "Row",
+        maxItems: 10,
+        defaultItems: [
+          { label: "First item", detail: "what it is", cells: ["Before", "After"] },
+          { label: "Second item", detail: "what it is", cells: ["Before", "After"] },
+          { label: "Third item", detail: "what it is", cells: ["Before", "After"] },
+        ],
+        itemFields: [
+          textField("label", "Label", { maxLength: 40 }),
+          textField("detail", "Detail", { maxLength: 60 }),
+          textListField("cells", "Cells", { itemLabel: "Cell", maxItems: 3 }),
+        ],
+      }),
+      longTextField("note", "Footnote", { maxLength: 160 }),
+    ],
+  },
+  {
+    id: "diagram",
+    label: "Diagram",
+    purpose: "Boxes, circles, diamonds and cylinders you drag into place and link.",
+    shellClass: "slide",
+    fields: [
+      textField("eyebrow", "Eyebrow", { defaultValue: "DIAGRAM", maxLength: 80 }),
+      textField("heading", "Heading", { defaultValue: "One diagram, dragged into shape.", maxLength: 100 }),
+      selectField(
+        "routing",
+        "Arrows",
+        DIAGRAM_ROUTINGS.map((routing) => ({ value: routing, label: DIAGRAM_ROUTING_LABELS[routing] })),
+        "straight",
+      ),
+      groupListField("boxes", "Boxes", {
+        itemLabel: "Box",
+        maxItems: 6,
+        defaultItems: [
+          { id: "box-1", shape: "box", tone: "accent", label: "First", x: 40, y: 170 },
+          { id: "box-2", shape: "diamond", tone: "accent", label: "Second", x: 400, y: 158 },
+          { id: "box-3", shape: "cylinder", tone: "accent", label: "Third", x: 760, y: 158 },
+        ],
+        createEmptyItem: () => ({ id: createDiagramBoxId(), shape: "box", tone: "accent", label: "Step" }),
+        itemFields: [
+          textField("label", "Label", { maxLength: 40, defaultValue: "Step" }),
+          selectField(
+            "shape",
+            "Shape",
+            DIAGRAM_SHAPES.map((shape) => ({ value: shape, label: DIAGRAM_SHAPE_LABELS[shape] })),
+            "box",
+          ),
+          selectField(
+            "tone",
+            "Colour",
+            DIAGRAM_TONES.map((tone) => ({ value: tone, label: DIAGRAM_TONE_LABELS[tone] })),
+            "accent",
+          ),
+        ],
+      }),
+      longTextField("note", "Footnote", { maxLength: 160 }),
+    ],
+    extraDefaults: {
+      links: [
+        { from: "box-1", to: "box-2" },
+        { from: "box-2", to: "box-3" },
+      ],
+    },
+  },
+  {
     id: "closing",
     label: "Closing",
     purpose: "Ends on a decision or a question, never a thank you.",
@@ -340,7 +457,13 @@ function createValuesForFields(fields: FieldDefinition[]): Record<string, unknow
 export function createDefaultContentForLayout<Layout extends SlideLayoutId>(
   layoutId: Layout,
 ): SlideContentByLayout[Layout] {
-  return createValuesForFields(findSlideLayout(layoutId).fields) as unknown as SlideContentByLayout[Layout];
+  const layout = findSlideLayout(layoutId);
+  const content: Record<string, unknown> = createValuesForFields(layout.fields);
+
+  // Cloned per slide: a shared links array would be mutated through the deck.
+  if (layout.extraDefaults) Object.assign(content, structuredClone(layout.extraDefaults));
+
+  return content as unknown as SlideContentByLayout[Layout];
 }
 
 function findFieldAtPath(layout: SlideLayoutDefinition, path: ContentPath): FieldDefinition | null {
@@ -362,6 +485,14 @@ export function createEmptyListItem(layoutId: SlideLayoutId, listFieldPath: Cont
   const field = findFieldAtPath(findSlideLayout(layoutId), listFieldPath);
   if (!field) return "";
   if (field.type !== "list") return "";
-  if (field.itemFields) return createValuesForFields(field.itemFields) as ListItemValue;
+  if (field.itemFields) {
+    const defaults = createValuesForFields(field.itemFields) as Record<string, unknown>;
+    const extra = field.createEmptyItem?.();
+
+    return (
+      typeof extra === "object" && extra !== null ? { ...defaults, ...extra } : defaults
+    ) as ListItemValue;
+  }
+
   return field.createEmptyItem ? field.createEmptyItem() : "";
 }

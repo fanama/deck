@@ -103,6 +103,14 @@ export function insertSlideAfterSlide(deck: Deck, slide: Slide, afterSlideId: st
   });
 }
 
+/**
+ * A copy with a fresh id, safe to add to a library that already holds the
+ * original (importing an exported deck a second time, for instance).
+ */
+export function duplicateDeck(deck: Deck): Deck {
+  return touchDeck({ ...structuredClone(deck), id: createId("deck") });
+}
+
 export function duplicateSlideById(deck: Deck, slideId: string): Deck {
   const original = findSlideById(deck, slideId);
   if (!original) return deck;

@@ -1,0 +1,327 @@
+{
+  "id": "deck_hexagonal_rag_agent",
+  "title": "Hexagonal RAG Agent — workflow, ports & adapters",
+  "footerLabel": "Hexagonal RAG Agent · workflow, ports & adapters",
+  "theme": { "accentColor": "#e2001a" },
+  "updatedAt": "2026-11-05T00:00:00.000Z",
+  "slides": [
+    {
+      "id": "slide_cover",
+      "layout": "title",
+      "content": {
+        "eyebrow": "Comité d'architecture · présentation technique",
+        "heading": "RAG Agent : un process, des pipelines, des adapters.",
+        "lede": "Comment une question et un fichier traversent l'application, ce que chaque dépendance doit tenir, et comment on en change une sans toucher aux services.",
+        "pills": [
+          "Python 3.12 · asyncio",
+          "Deux trajets",
+          "Dix ports",
+          "Adapters interchangeables"
+        ],
+        "meta": [
+          { "label": "Date", "value": "3 novembre 2026" },
+          { "label": "Périmètre", "value": "Workflow, stack, ports et adapters" },
+          { "label": "Public", "value": "Comité d'architecture" }
+        ]
+      }
+    },
+    {
+      "id": "slide_workflow",
+      "layout": "flow",
+      "content": {
+        "eyebrow": "Le workflow",
+        "heading": "De bout en bout : l'index fait le lien.",
+        "lanes": [
+          {
+            "label": "Ingestion",
+            "nodes": [
+              { "title": "Upload", "detail": "fichier déposé · tâche créée" },
+              { "title": "Tâche", "detail": "queued · reprise au démarrage" },
+              { "title": "Extraction", "detail": "structure · OCR des scans" },
+              { "title": "Découpage + encodage", "detail": "blocs localisés · dense + lexical" },
+              { "title": "Index", "detail": "passages · vecteurs · métadonnées" }
+            ]
+          },
+          {
+            "label": "Recherche et réponse",
+            "nodes": [
+              { "title": "Identité", "detail": "entité et pipeline résolues" },
+              { "title": "Recherche + fusion", "detail": "20 candidats · deux classements" },
+              { "title": "Reranker", "detail": "3 passages · optionnel" },
+              { "title": "Prompt", "detail": "extraits seuls · fichier, page, section" },
+              { "title": "Réponse", "detail": "sources · has_context" }
+            ]
+          }
+        ],
+        "note": "Ce que chaque étape appelle est un port ; ce qui l'exécute est un adapter. Les deux trajets ne partagent que l'index et le task store."
+      }
+    },
+    {
+      "id": "slide_ingestion",
+      "layout": "rules",
+      "content": {
+        "eyebrow": "Ingestion",
+        "heading": "Ce qui est écrit avant la réponse.",
+        "rules": [
+          {
+            "marker": "1",
+            "statement": "Validation, avant tout : extension, taille et contenu vérifiés avant la moindre écriture — un fichier qu'aucun reader ne prend est refusé tout de suite."
+          },
+          {
+            "marker": "2",
+            "statement": "Deux écritures durables : les octets dans le spool, l'état queued dans le task store. La réponse ne part qu'après, avec le task_id à suivre."
+          },
+          {
+            "marker": "3",
+            "statement": "Le worker prend le relais : extraction hors de la boucle, découpage localisé, dense et lexical, écriture de l'index, puis suppression du spool."
+          },
+          {
+            "marker": "4",
+            "statement": "Échec et reprise : trois tentatives par défaut, puis échec terminal. Au démarrage, ce qui était queued ou running repart en file."
+          }
+        ],
+        "note": "Ce qui survit à un arrêt : l'état de la tâche et les octets déposés. La file, elle, vit en mémoire du process."
+      }
+    },
+    {
+      "id": "slide_request",
+      "layout": "flow",
+      "content": {
+        "eyebrow": "Requête",
+        "heading": "Le chemin de la question, sans décision du modèle.",
+        "lanes": [
+          {
+            "label": "Recherche",
+            "nodes": [
+              { "title": "Identité", "detail": "clé API · entité et pipeline" },
+              { "title": "Deux encodages", "detail": "dense pour le sens, lexical" },
+              { "title": "Recherche + fusion", "detail": "20 candidats, fusion par rangs" }
+            ]
+          },
+          {
+            "label": "Réponse",
+            "nodes": [
+              { "title": "Reranker", "detail": "cross-encoder · optionnel" },
+              { "title": "Prompt", "detail": "extraits étiquetés fichier, page" },
+              { "title": "Réponse", "detail": "texte · sources · has_context" }
+            ]
+          }
+        ],
+        "note": "Aucune étape n'est décidée par le modèle : six appels nommés dans le service, chacun derrière un port."
+      }
+    },
+    {
+      "id": "slide_stack",
+      "layout": "cards",
+      "content": {
+        "eyebrow": "La stack",
+        "heading": "Quatre contraintes, avant le premier nom de produit.",
+        "cards": [
+          {
+            "marker": "01",
+            "title": "Un process, une boucle",
+            "body": "Tout ce qui bloque — extraction, encodage, reclassement — sort de la boucle ; ce qui reste est attendu, jamais bloquant."
+          },
+          {
+            "marker": "02",
+            "title": "Un seul client HTTP",
+            "body": "Chat, embeddings et vision parlent le même dialecte : un endpoint compatible suffit, sans SDK dédié."
+          },
+          {
+            "marker": "03",
+            "title": "Un index, quatre rôles",
+            "body": "Vecteurs denses, vecteurs creux, alias et état des tâches : une seule brique à exploiter et à sauvegarder."
+          },
+          {
+            "marker": "04",
+            "title": "Rien de plus à héberger",
+            "body": "Le lexical et le cross-encoder tournent dans le process, sur des modèles locaux."
+          }
+        ],
+        "note": "Aucun framework de RAG : la récupération est du code de service, en étapes nommées et testables."
+      }
+    },
+    {
+      "id": "slide_ports",
+      "layout": "table",
+      "content": {
+        "eyebrow": "Ports & adapters",
+        "heading": "Les dix ports et leurs adapters.",
+        "rowHeader": "Port",
+        "columns": ["Open source", "Propriétaire · GCP d'abord"],
+        "rows": [
+          {
+            "label": "llm",
+            "detail": "prompt et réponse",
+            "cells": [
+              "OpenAILikeLlmAdapter · vLLM · Ollama · LiteLLM",
+              "VertexAiLlmAdapter · OpenAI · Azure"
+            ]
+          },
+          {
+            "label": "embedding",
+            "detail": "vecteurs denses",
+            "cells": [
+              "OpenAILikeEmbeddingAdapter · TEI · Infinity · Ollama",
+              "VertexAiEmbeddingAdapter · OpenAI · Azure"
+            ]
+          },
+          {
+            "label": "sparse",
+            "detail": "termes exacts · optionnel",
+            "cells": [
+              "FastEmbedSparseEncoder · Rank-BM25",
+              "Vertex AI Search · Elasticsearch"
+            ]
+          },
+          {
+            "label": "vision",
+            "detail": "images sans texte · optionnel",
+            "cells": [
+              "OpenAILikeVisionAdapter · vLLM · Ollama",
+              "VertexAiVisionAdapter · Gemini · GPT-4o"
+            ]
+          },
+          {
+            "label": "reranker",
+            "detail": "20 candidats → 3 · optionnel",
+            "cells": [
+              "FlashRankReranker · TeiRerankerAdapter",
+              "Vertex AI Ranking · Cohere"
+            ]
+          },
+          {
+            "label": "extractor",
+            "detail": "structure et OCR",
+            "cells": [
+              "TikaExtractor · Docling · Unstructured",
+              "build_document_ai_extractor · LlamaParse"
+            ]
+          },
+          {
+            "label": "vector_store",
+            "detail": "écrire et chercher",
+            "cells": [
+              "QdrantAdapter · Milvus · pgvector",
+              "Qdrant Cloud · Pinecone"
+            ]
+          },
+          {
+            "label": "index_admin",
+            "detail": "alias et collections",
+            "cells": [
+              "QdrantAdapter · une instance, deux contrats",
+              "Vector Search · AlloyDB"
+            ]
+          },
+          {
+            "label": "task_store",
+            "detail": "état des tâches",
+            "cells": [
+              "QdrantTaskStore · RedisTaskStore · PostgresTaskStore",
+              "FirestoreTaskStore · Memorystore"
+            ]
+          },
+          {
+            "label": "spool",
+            "detail": "octets déposés",
+            "cells": [
+              "LocalUploadSpool · S3UploadSpool · GcsUploadSpool",
+              "Cloud Storage · S3 · R2"
+            ]
+          }
+        ],
+        "note": "GCP d'abord, pas GCP seulement : ○ se branche sans code, ◌ demande un adapter. 11e port : EntityStorePort."
+      }
+    },
+    {
+      "id": "slide_wiring",
+      "layout": "flow",
+      "content": {
+        "eyebrow": "Le câblage",
+        "heading": "Le sens des imports est la règle d'architecture.",
+        "lanes": [
+          {
+            "label": "Cœur · aucun adapter importé",
+            "nodes": [
+              { "title": "entrypoints", "detail": "api · auth · ui" },
+              { "title": "services", "detail": "chat · ingestion · index" },
+              { "title": "ports", "detail": "Protocol" }
+            ]
+          },
+          {
+            "label": "Périphérie",
+            "nodes": [
+              { "title": "adapters", "detail": "index · http · fichiers" },
+              { "title": "backends", "detail": "index · modèles · stockage" }
+            ]
+          }
+        ],
+        "note": "Une pipeline par entité ; un pool partage le même adapter ; une bascule sert la requête suivante, sans coupure."
+      }
+    },
+    {
+      "id": "slide_pipeline_document",
+      "layout": "rules",
+      "content": {
+        "eyebrow": "Déclarer une pipeline",
+        "heading": "Un document JSON, validé avant écriture, versionné.",
+        "rules": [
+          {
+            "marker": "1",
+            "statement": "Validation avant écriture : structure et bornes, puis import réel de l'adapter ; les méthodes du port sont vérifiées sur la cible."
+          },
+          {
+            "marker": "2",
+            "statement": "Ce qui est refusé : null sur un port requis, un port inconnu, une clé en trop, un type qui ne passe pas."
+          },
+          {
+            "marker": "3",
+            "statement": "Versionné : chaque écriture crée une version ; les secrets sont chiffrés et l'API ne renvoie jamais que ***."
+          }
+        ],
+        "note": "Base → overrides par fusion profonde ; les défauts remplissent top_k, découpage, tentatives et workers."
+      }
+    },
+    {
+      "id": "slide_swap",
+      "layout": "cards",
+      "content": {
+        "eyebrow": "Changer d'adapter",
+        "heading": "Une écriture de configuration, pas un redéploiement.",
+        "cards": [
+          {
+            "marker": "01",
+            "title": "Spool — disque local → stockage objet",
+            "body": "Même port, autre adapter : les services ne changent pas ; les octets déjà déposés migrent avant la bascule."
+          },
+          {
+            "marker": "02",
+            "title": "Embedding — autre modèle",
+            "body": "La collection est liée à (modèle, dimension, layout) : nouvelle collection, réindexation, bascule d'alias."
+          },
+          {
+            "marker": "03",
+            "title": "Extraction — parseur complet → léger",
+            "body": "Le paramètre parser recompose la chaîne de lecture ; le profil léger ne garde que PDF et DOCX."
+          }
+        ],
+        "note": "Un adapter hors du dépôt s'enregistre depuis la console après la même vérification : import, méthodes, paramètres."
+      }
+    },
+    {
+      "id": "slide_bilan",
+      "layout": "closing",
+      "content": {
+        "eyebrow": "Bilan",
+        "heading": "Deux trajets nommés, dix contrats, un seul fichier de câblage.",
+        "lede": "Changer d'adapter est une écriture validée et versionnée, pas un redéploiement. Ce qui reste local : la file asyncio.Queue.",
+        "meta": [
+          { "label": "À retenir", "value": "Chaque port a son implémentation livrée." },
+          { "label": "À surveiller", "value": "La file asyncio.Queue vit en mémoire du process." },
+          { "label": "Avant un 2e réplica", "value": "Une file partagée, pas un autre stockage." }
+        ]
+      }
+    }
+  ]
+}

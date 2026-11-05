@@ -1,24 +1,25 @@
 <script lang="ts">
   import type { RulesSlideContent } from "../../../domain/deck/slideTypes.ts";
+  import EditableText from "../EditableText.svelte";
 
   let { content }: { content: RulesSlideContent } = $props();
 </script>
 
-<div class="eyebrow">{content.eyebrow}</div>
+<EditableText as="div" class="eyebrow" path={["eyebrow"]} value={content.eyebrow} />
 
 <div class="body">
-  <h2>{content.heading}</h2>
+  <EditableText as="h2" path={["heading"]} value={content.heading} />
 
   <div class="rules">
     {#each content.rules as rule, index (index)}
       <div class="rule">
-        <div class="k">{rule.marker}</div>
-        <p>{rule.statement}</p>
+        <EditableText as="div" class="k" path={["rules", index, "marker"]} value={rule.marker} />
+        <EditableText as="p" path={["rules", index, "statement"]} value={rule.statement} />
       </div>
     {/each}
   </div>
 
   {#if content.note}
-    <p class="note">{content.note}</p>
+    <EditableText as="p" class="note" path={["note"]} value={content.note} />
   {/if}
 </div>
