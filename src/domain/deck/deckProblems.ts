@@ -1,3 +1,9 @@
+import {
+  diagramBoxMinSize,
+  SCHEMA_FIELD_MAX,
+  SCHEMA_FIELD_MAX_LENGTH,
+} from "../../shared/diagramSvg.ts";
+import { computeTableLayout } from "../../shared/tableLayout.ts";
 import { SLIDE_LAYOUTS } from "./slideLayoutCatalog.ts";
 import type { ContentPath, Deck } from "./slideTypes.ts";
 
@@ -79,6 +85,44 @@ export function findDeckProblems(deck: Deck): DeckProblem[] {
         severity: "warning",
         message: `Slide ${slideNumber} (${layoutLabel}): the diagram has no boxes.`,
       });
+    }
+
+    if (slide.layout === "table" && computeTableLayout(slide.content).overflowsStage) {
+      problems.push({
+        severity: "warning",
+        message: `Slide ${slideNumber} (${layoutLabel}): the table needs more height than the stage has; shorten cells or remove a row.`,
+      });
+    }
+
+    if (slide.layout === "diagram") {
+      const overLimit = slide.content.boxes.some(
+        (box) =>
+          (box.fields?.length ?? 0) > SCHEMA_FIELD_MAX ||
+          (box.fields ?? []).some((field) => field.length > SCHEMA_FIELD_MAX_LENGTH),
+      );
+
+      if (overLimit) {
+        problems.push({
+          severity: "warning",
+          message: `Slide ${slideNumber} (${layoutLabel}): a schema node has more fields than the ${SCHEMA_FIELD_MAX} it can show, or a field longer than ${SCHEMA_FIELD_MAX_LENGTH} characters.`,
+        });
+      }
+
+      const clamped = slide.content.boxes.some((box) => {
+        const minimum = diagramBoxMinSize(box);
+
+        return (
+          (typeof box.width === "number" && box.width < minimum.width) ||
+          (typeof box.height === "number" && box.height < minimum.height)
+        );
+      });
+
+      if (clamped) {
+        problems.push({
+          severity: "warning",
+          message: `Slide ${slideNumber} (${layoutLabel}): a schema node was too small for its content and has been enlarged to fit.`,
+        });
+      }
     }
 
     const longBlockTexts: LongBlockText[] = [];

@@ -93,6 +93,11 @@ a:focus-visible {
   gap: 10px;
 }
 
+.history-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .save-indicator {
   font-size: 12px;
   color: var(--muted);
@@ -515,6 +520,74 @@ a:focus-visible {
   color: var(--muted);
 }
 
+/* Diagram zoom is a studio view, not part of the exported slide. */
+.preview-stage .diagram {
+  position: relative;
+}
+
+.diagram-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 8px rgba(18, 23, 31, 0.08);
+}
+
+.diagram-zoom-button,
+.diagram-zoom-reset {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.diagram-zoom-reset {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.diagram-zoom-button:hover:not(:disabled),
+.diagram-zoom-reset:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.diagram-zoom-button:disabled,
+.diagram-zoom-reset:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.diagram-zoom-value {
+  min-width: 38px;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram-canvas.can-pan {
+  cursor: grab;
+}
+
+.diagram-canvas.is-panning {
+  cursor: grabbing;
+}
+
 /* Renaming a diagram box: an input laid exactly over the drawn box. */
 .preview-stage .diagram {
   position: relative;
@@ -532,6 +605,14 @@ a:focus-visible {
 .preview-stage .diagram-link-hit {
   cursor: pointer;
   pointer-events: stroke;
+}
+
+.preview-stage .diagram-selection {
+  pointer-events: none;
+}
+
+.preview-stage .diagram-resize circle {
+  cursor: inherit;
 }
 
 .preview-stage .diagram-box.is-link-target path {
@@ -679,6 +760,30 @@ a:focus-visible {
 .icon-actions {
   display: flex;
   gap: 4px;
+}
+
+.diagram-selection-tools {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent-line);
+  border-radius: 3px;
+  background: #fbfaf7;
+}
+
+.diagram-selection-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diagram-selection-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .problem-list {

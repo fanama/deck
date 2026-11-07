@@ -350,33 +350,73 @@
 /* -- table: one labelled column, then the evidence columns -------------- */
 .slide .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
+  --table-row-height: 44px;
 }
 
+/* The dark band is the header: it carries the comparison, not decoration. */
 .slide .table th {
-  padding: 0 14px 7px 0;
-  border-bottom: 1.5px solid var(--ink);
+  /* Editable cells carry `.slide-text`, which the studio styles as flex;
+     a table cell has to stay a table cell or the columns collapse. */
+  display: table-cell;
+  height: 32px;
+  padding: 9px 12px;
+  background: var(--ink);
+  color: var(--paper);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: left;
-  color: var(--muted);
+  vertical-align: middle;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.slide .table th:last-child {
+  border-right: 0;
 }
 
 .slide .table th:first-child {
-  width: 28%;
+  padding-left: 0;
 }
 
 .slide .table td {
-  padding: 5px 14px 5px 0;
+  display: table-cell;
+  padding: 8px 12px;
   border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   font-size: 11.5px;
   line-height: 1.3;
   vertical-align: middle;
   color: var(--ink-soft);
   overflow-wrap: anywhere;
+}
+
+.slide .table td:last-child {
+  border-right: 0;
+}
+
+.slide .table td:first-child {
+  padding-left: 0;
+}
+
+.slide .table tbody tr {
+  height: var(--table-row-height);
+}
+
+.slide .table tbody tr:nth-child(even) td {
+  background: #fbfaf7;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.slide .table td.is-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .slide .table .row-label {

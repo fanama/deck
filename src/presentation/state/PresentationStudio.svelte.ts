@@ -23,8 +23,25 @@ import {
 } from "../../domain/deck/Deck.ts";
 import { findDeckProblems } from "../../domain/deck/deckProblems.ts";
 import { createEmptyListItem, findSlideLayout } from "../../domain/deck/slideLayoutCatalog.ts";
-import type { ContentPath, Deck, Slide, SlideLayoutId } from "../../domain/deck/slideTypes.ts";
+import type {
+  ContentPath,
+  Deck,
+  DiagramBox,
+  DiagramLink,
+  DiagramRouting,
+  DiagramSlideContent,
+  Slide,
+  SlideLayoutId,
+} from "../../domain/deck/slideTypes.ts";
 import type { DeckLibrary, DeckRepository } from "../../domain/ports/deckRepositoryPort.ts";
+import {
+  createDiagramGroupId,
+  diagramBoxMinSize,
+  DIAGRAM_HEIGHT,
+  DIAGRAM_WIDTH,
+  diagramShapeSize,
+  normalizeDiagramBoxes,
+} from "../../shared/diagramSvg.ts";
 import { downloadBinaryFile } from "../../infrastructure/browser/downloadBinaryFile.ts";
 import { rasteriseSvgToPng } from "../../infrastructure/browser/rasteriseSvgToPng.ts";
 import { enterFullscreen, exitFullscreen } from "../../infrastructure/browser/fullscreen.ts";
@@ -36,6 +53,29 @@ import { createPptxDeckExporter } from "../../infrastructure/pptx/pptxDeckExport
 export interface StudioNotice {
   kind: "success" | "error";
   message: string;
+}
+
+/** One step of diagram-only undo: the slide's drawing before a change. */
+export interface DiagramHistoryEntry {
+  slideId: string;
+  boxes: DiagramBox[];
+  links: DiagramLink[];
+  routing: DiagramRouting;
+}
+
+/** A typed width/height may not go below what the node's content needs. */
+function clampDiagramDimension(
+  box: DiagramBox,
+  dimension: "width" | "height",
+  value: unknown,
+): unknown {
+  const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+  if (!Number.isFinite(parsed)) return value;
+
+  const minimum = diagramBoxMinSize(box);
+  const maximum = dimension === "width" ? DIAGRAM_WIDTH - box.x : DIAGRAM_HEIGHT - box.y;
+
+  return Math.min(Math.max(Math.round(parsed), minimum[dimension]), maximum);
 }
 
 const deckRepository: DeckRepository = createLocalStorageDeckRepository();
@@ -59,6 +99,12 @@ export class PresentationStudio {
   isSaved = $state<boolean>(savedLibrary !== null);
   notice = $state<StudioNotice | null>(null);
   isPresenting = $state<boolean>(false);
+  selectedDiagramBoxId = $state<string | null>(null);
+  selectedDiagramBoxIds = $state<string[]>([]);
+  undoStack = $state<DiagramHistoryEntry[]>([]);
+  redoStack = $state<DiagramHistoryEntry[]>([]);
+  private lastDiagramHistoryPath: string | null = null;
+  private lastDiagramHistoryAt = 0;
 
   selectedSlide = $derived(
     findSlideById(this.deck, this.selectedSlideId) ?? this.deck.slides[0] ?? null,
@@ -74,8 +120,58 @@ export class PresentationStudio {
 
   canDeleteSelectedSlide = $derived(this.deck.slides.length > 1);
 
+  canUndoDiagramEdit = $derived(this.undoStack.length > 0);
+
+  canRedoDiagramEdit = $derived(this.redoStack.length > 0);
+
+  selectedDiagramBox = $derived.by(() => {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram" || !this.selectedDiagramBoxId) return null;
+
+    return slide.content.boxes.find((box) => box.id === this.selectedDiagramBoxId) ?? null;
+  });
+
+  selectedDiagramGroupId = $derived(this.selectedDiagramBox?.groupId ?? null);
+
+  canGroupSelectedDiagramBoxes = $derived(this.selectedDiagramBoxIds.length > 1);
+
   selectSlide(slideId: string): void {
     this.selectedSlideId = slideId;
+
+    const slide = findSlideById(this.deck, slideId);
+    const existing = new Set(
+      slide?.layout === "diagram" ? slide.content.boxes.map((box) => box.id) : [],
+    );
+
+    this.selectedDiagramBoxIds = this.selectedDiagramBoxIds.filter((id) => existing.has(id));
+    this.selectedDiagramBoxId =
+      this.selectedDiagramBoxIds[this.selectedDiagramBoxIds.length - 1] ?? null;
+  }
+
+  selectDiagramBox(boxId: string | null, additive = false): void {
+    if (!boxId) {
+      this.clearDiagramSelection();
+      return;
+    }
+
+    if (!additive) {
+      this.selectedDiagramBoxId = boxId;
+      this.selectedDiagramBoxIds = [boxId];
+      return;
+    }
+
+    const wasSelected = this.selectedDiagramBoxIds.includes(boxId);
+    this.selectedDiagramBoxIds = wasSelected
+      ? this.selectedDiagramBoxIds.filter((id) => id !== boxId)
+      : [...this.selectedDiagramBoxIds, boxId];
+    this.selectedDiagramBoxId = wasSelected
+      ? (this.selectedDiagramBoxIds[this.selectedDiagramBoxIds.length - 1] ?? null)
+      : boxId;
+  }
+
+  clearDiagramSelection(): void {
+    this.selectedDiagramBoxId = null;
+    this.selectedDiagramBoxIds = [];
   }
 
   /** Switches the open deck; the library keeps the other ones untouched. */
@@ -88,6 +184,8 @@ export class PresentationStudio {
 
     this.deck = target;
     this.selectedSlideId = target.slides[0]?.id ?? "";
+    this.clearDiagramSelection();
+    this.resetDiagramHistory();
     this.isSaved = false;
     this.notice = null;
   }
@@ -109,6 +207,8 @@ export class PresentationStudio {
       if (nextDeck) {
         this.deck = nextDeck;
         this.selectedSlideId = nextDeck.slides[0]?.id ?? "";
+        this.clearDiagramSelection();
+        this.resetDiagramHistory();
       }
     }
 
@@ -153,6 +253,7 @@ export class PresentationStudio {
   addSlideWithLayout(layoutId: SlideLayoutId): void {
     const slide: Slide = createBlankSlide(layoutId);
     this.deck = insertSlideAfterSlide(this.deck, slide, this.selectedSlideId);
+    this.clearDiagramSelection();
     this.selectSlide(slide.id);
     this.markChanged();
   }
@@ -163,6 +264,7 @@ export class PresentationStudio {
 
     this.deck = duplicateSlideById(this.deck, slideId);
     const duplicatedSlide = this.deck.slides[sourceIndex + 1];
+    this.clearDiagramSelection();
     if (duplicatedSlide) this.selectSlide(duplicatedSlide.id);
     this.markChanged();
   }
@@ -173,6 +275,7 @@ export class PresentationStudio {
     const removedIndex = findSlideIndexById(this.deck, slideId);
     this.deck = removeSlideById(this.deck, slideId);
     const nextSlide = this.deck.slides[Math.min(removedIndex, this.deck.slides.length - 1)];
+    this.clearDiagramSelection();
     if (nextSlide) this.selectSlide(nextSlide.id);
     this.markChanged();
   }
@@ -206,37 +309,183 @@ export class PresentationStudio {
   }
 
   updateSlideField(path: ContentPath, value: unknown): void {
-    if (!this.selectedSlide) return;
-    this.deck = updateSlideContentAtPath(this.deck, this.selectedSlide.id, path, value);
+    const slide = this.selectedSlide;
+    if (!slide) return;
+
+    const isDiagramEdit =
+      slide.layout === "diagram" && (path[0] === "boxes" || path[0] === "links");
+    if (isDiagramEdit) this.pushDiagramHistory(path);
+
+    const nextValue =
+      slide.layout === "diagram" ? this.clampDiagramField(slide.content, path, value) : value;
+    let deck = updateSlideContentAtPath(this.deck, slide.id, path, nextValue);
+    if (slide.layout === "diagram") deck = this.normalizeDiagramContent(deck, slide.id);
+
+    this.deck = deck;
     this.markChanged();
   }
 
-  /** Moves one diagram box; the preview calls this when a drag ends. */
-  moveDiagramBox(boxIndex: number, position: { x: number; y: number }): void {
+  /** Moves one or more boxes; the preview works out the shared offset. */
+  moveDiagramBoxes(
+    updates: ReadonlyArray<{ index: number; x: number; y: number }>,
+    nest?: { boxId: string; parentId: string | null },
+  ): void {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram") return;
+    if (updates.length === 0 && !nest) return;
+
+    this.pushDiagramHistory();
+    let deck = this.deck;
+
+    for (const update of updates) {
+      deck = updateSlideContentAtPath(deck, slide.id, ["boxes", update.index, "x"], update.x);
+      deck = updateSlideContentAtPath(deck, slide.id, ["boxes", update.index, "y"], update.y);
+    }
+
+    if (nest) {
+      const index = slide.content.boxes.findIndex((box) => box.id === nest.boxId);
+      if (index >= 0) {
+        deck = updateSlideContentAtPath(
+          deck,
+          slide.id,
+          ["boxes", index, "parentId"],
+          nest.parentId,
+        );
+      }
+    }
+
+    this.deck = this.normalizeDiagramContent(deck, slide.id);
+    this.markChanged();
+  }
+
+  /** Commits a corner resize; the preview clamps and rounds before calling. */
+  resizeDiagramBox(
+    boxIndex: number,
+    rect: { x: number; y: number; width: number; height: number },
+  ): void {
     const slide = this.selectedSlide;
     if (!slide || slide.layout !== "diagram") return;
 
-    const movedHorizontally = updateSlideContentAtPath(this.deck, slide.id, ["boxes", boxIndex, "x"], position.x);
-    this.deck = updateSlideContentAtPath(movedHorizontally, slide.id, ["boxes", boxIndex, "y"], position.y);
+    this.pushDiagramHistory();
+    let deck = updateSlideContentAtPath(this.deck, slide.id, ["boxes", boxIndex, "x"], rect.x);
+    deck = updateSlideContentAtPath(deck, slide.id, ["boxes", boxIndex, "y"], rect.y);
+    deck = updateSlideContentAtPath(deck, slide.id, ["boxes", boxIndex, "width"], rect.width);
+    deck = updateSlideContentAtPath(deck, slide.id, ["boxes", boxIndex, "height"], rect.height);
+
+    const boxId = slide.content.boxes[boxIndex]?.id ?? "";
+    this.deck = this.clampDiagramChildren(
+      this.normalizeDiagramContent(deck, slide.id),
+      slide.id,
+      boxId,
+    );
     this.markChanged();
   }
 
+  /** Boxes sharing a group id travel together; the selection seeds a new group. */
+  groupSelectedDiagramBoxes(): void {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram" || this.selectedDiagramBoxIds.length < 2) return;
+
+    this.pushDiagramHistory();
+    const groupId = createDiagramGroupId();
+    const selected = new Set(this.selectedDiagramBoxIds);
+    let deck = this.deck;
+
+    slide.content.boxes.forEach((box, index) => {
+      if (!selected.has(box.id)) return;
+      deck = updateSlideContentAtPath(deck, slide.id, ["boxes", index, "groupId"], groupId);
+    });
+
+    this.deck = this.normalizeDiagramContent(deck, slide.id);
+    this.markChanged();
+  }
+
+  /** Splits every group represented in the current selection. */
+  ungroupSelectedDiagramBoxes(): void {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram") return;
+
+    const selected = new Set(this.selectedDiagramBoxIds);
+    const groupIds = new Set(
+      slide.content.boxes
+        .filter((box) => selected.has(box.id) && box.groupId)
+        .map((box) => box.groupId as string),
+    );
+    if (groupIds.size === 0) return;
+
+    this.pushDiagramHistory();
+    let deck = this.deck;
+
+    slide.content.boxes.forEach((box, index) => {
+      if (!box.groupId || !groupIds.has(box.groupId)) return;
+      deck = updateSlideContentAtPath(deck, slide.id, ["boxes", index, "groupId"], undefined);
+    });
+
+    this.deck = this.normalizeDiagramContent(deck, slide.id);
+    this.markChanged();
+  }
+
+  undoDiagramEdit(): void {
+    const entry = this.undoStack[this.undoStack.length - 1];
+    if (!entry) return;
+
+    const current = this.diagramHistoryEntry(entry.slideId);
+    if (!current) return;
+
+    this.undoStack = this.undoStack.slice(0, -1);
+    this.redoStack = [...this.redoStack, current];
+    this.restoreDiagramHistoryEntry(entry);
+  }
+
+  redoDiagramEdit(): void {
+    const entry = this.redoStack[this.redoStack.length - 1];
+    if (!entry) return;
+
+    const current = this.diagramHistoryEntry(entry.slideId);
+    if (!current) return;
+
+    this.redoStack = this.redoStack.slice(0, -1);
+    this.undoStack = [...this.undoStack, current].slice(-50);
+    this.restoreDiagramHistoryEntry(entry);
+  }
+
   appendSlideListItem(listFieldPath: ContentPath): void {
-    if (!this.selectedSlide) return;
-    const emptyItem = createEmptyListItem(this.selectedSlide.layout, listFieldPath);
-    this.deck = appendSlideContentItem(this.deck, this.selectedSlide.id, listFieldPath, emptyItem);
+    const slide = this.selectedSlide;
+    if (!slide) return;
+
+    if (slide.layout === "diagram" && listFieldPath[0] === "boxes") this.pushDiagramHistory(listFieldPath);
+
+    const emptyItem = createEmptyListItem(slide.layout, listFieldPath);
+    let deck = appendSlideContentItem(this.deck, slide.id, listFieldPath, emptyItem);
+    if (slide.layout === "diagram") deck = this.normalizeDiagramContent(deck, slide.id);
+
+    this.deck = deck;
     this.markChanged();
   }
 
   removeSlideListItem(listFieldPath: ContentPath, index: number): void {
-    if (!this.selectedSlide) return;
-    this.deck = removeSlideContentItem(this.deck, this.selectedSlide.id, listFieldPath, index);
+    const slide = this.selectedSlide;
+    if (!slide) return;
+
+    if (slide.layout === "diagram" && listFieldPath[0] === "boxes") this.pushDiagramHistory(listFieldPath);
+
+    let deck = removeSlideContentItem(this.deck, slide.id, listFieldPath, index);
+    if (slide.layout === "diagram") deck = this.normalizeDiagramContent(deck, slide.id);
+
+    this.deck = deck;
     this.markChanged();
   }
 
   moveSlideListItem(listFieldPath: ContentPath, fromIndex: number, toIndex: number): void {
-    if (!this.selectedSlide) return;
-    this.deck = moveSlideContentItem(this.deck, this.selectedSlide.id, listFieldPath, fromIndex, toIndex);
+    const slide = this.selectedSlide;
+    if (!slide) return;
+
+    if (slide.layout === "diagram" && listFieldPath[0] === "boxes") this.pushDiagramHistory(listFieldPath);
+
+    let deck = moveSlideContentItem(this.deck, slide.id, listFieldPath, fromIndex, toIndex);
+    if (slide.layout === "diagram") deck = this.normalizeDiagramContent(deck, slide.id);
+
+    this.deck = deck;
     this.markChanged();
   }
 
@@ -245,6 +494,8 @@ export class PresentationStudio {
     const deck = createNewDeck(`Untitled deck ${this.decks.length + 1}`);
     this.decks = [...this.decks, deck];
     this.deck = deck;
+    this.clearDiagramSelection();
+    this.resetDiagramHistory();
     this.selectSlide(deck.slides[0]?.id ?? "");
     this.markChanged();
     this.showNotice("success", "Added a new deck; the others stay in the library.");
@@ -266,6 +517,8 @@ export class PresentationStudio {
 
     this.decks = [...this.decks, imported];
     this.deck = imported;
+    this.clearDiagramSelection();
+    this.resetDiagramHistory();
     this.selectSlide(imported.slides[0]?.id ?? "");
     this.markChanged();
     this.showNotice(
@@ -352,6 +605,122 @@ export class PresentationStudio {
   markChanged(): void {
     this.syncActiveDeck();
     this.isSaved = false;
+  }
+
+  /** Snapshot of a diagram slide, used as one undo step. */
+  private diagramHistoryEntry(slideId: string): DiagramHistoryEntry | null {
+    const slide = findSlideById(this.deck, slideId);
+    if (!slide || slide.layout !== "diagram") return null;
+
+    // The live content is a Svelte state proxy, which structuredClone rejects.
+    const snapshot = $state.snapshot({
+      boxes: slide.content.boxes,
+      links: slide.content.links,
+    });
+
+    return {
+      slideId,
+      boxes: snapshot.boxes,
+      links: snapshot.links,
+      routing: slide.content.routing,
+    };
+  }
+
+  /**
+   * Pushes the state before a diagram change. Consecutive edits to the same
+   * field within 500ms collapse into one step, so typing a title is one undo.
+   */
+  private pushDiagramHistory(path?: ContentPath): void {
+    const slide = this.selectedSlide;
+    if (!slide || slide.layout !== "diagram") return;
+
+    const entry = this.diagramHistoryEntry(slide.id);
+    if (!entry) return;
+
+    const key = path ? path.join(".") : null;
+    const now = Date.now();
+
+    if (key !== null && key === this.lastDiagramHistoryPath && now - this.lastDiagramHistoryAt < 500) {
+      this.lastDiagramHistoryAt = now;
+      this.redoStack = [];
+      return;
+    }
+
+    this.lastDiagramHistoryPath = key;
+    this.lastDiagramHistoryAt = now;
+    this.undoStack = [...this.undoStack, entry].slice(-50);
+    this.redoStack = [];
+  }
+
+  private restoreDiagramHistoryEntry(entry: DiagramHistoryEntry): void {
+    let deck = updateSlideContentAtPath(this.deck, entry.slideId, ["boxes"], $state.snapshot(entry.boxes));
+    deck = updateSlideContentAtPath(deck, entry.slideId, ["links"], $state.snapshot(entry.links));
+    deck = updateSlideContentAtPath(deck, entry.slideId, ["routing"], entry.routing);
+
+    this.deck = deck;
+    this.selectedSlideId = entry.slideId;
+    this.clearDiagramSelection();
+    this.markChanged();
+  }
+
+  private resetDiagramHistory(): void {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.lastDiagramHistoryPath = null;
+    this.lastDiagramHistoryAt = 0;
+  }
+
+  /** After a container shrinks, its direct children stay within its edges. */
+  private clampDiagramChildren(deck: Deck, slideId: string, parentId: string): Deck {
+    const slide = findSlideById(deck, slideId);
+    if (!slide || slide.layout !== "diagram" || !parentId) return deck;
+
+    const parent = slide.content.boxes.find((box) => box.id === parentId);
+    if (!parent) return deck;
+
+    const parentSize = diagramShapeSize(parent);
+    let next = deck;
+
+    slide.content.boxes.forEach((box, index) => {
+      if (box.parentId !== parentId) return;
+
+      const size = diagramShapeSize(box);
+      const maxX = Math.max(parent.x, parent.x + parentSize.width - size.width);
+      const maxY = Math.max(parent.y, parent.y + parentSize.height - size.height);
+      const x = Math.min(Math.max(box.x, parent.x), maxX);
+      const y = Math.min(Math.max(box.y, parent.y), maxY);
+
+      if (x === box.x && y === box.y) return;
+      next = updateSlideContentAtPath(next, slideId, ["boxes", index, "x"], x);
+      next = updateSlideContentAtPath(next, slideId, ["boxes", index, "y"], y);
+    });
+
+    return next;
+  }
+
+  /** Keeps stored sizes honest after a field row is added or removed. */
+  private normalizeDiagramContent(deck: Deck, slideId: string): Deck {
+    const slide = findSlideById(deck, slideId);
+    if (!slide || slide.layout !== "diagram") return deck;
+
+    return updateSlideContentAtPath(deck, slideId, ["boxes"], normalizeDiagramBoxes(slide.content.boxes));
+  }
+
+  private clampDiagramField(
+    content: DiagramSlideContent,
+    path: ContentPath,
+    value: unknown,
+  ): unknown {
+    if (path.length === 3 && path[0] === "boxes" && typeof path[1] === "number") {
+      const dimension = path[2];
+      const box = content.boxes[path[1]];
+
+      if (box && (dimension === "width" || dimension === "height")) {
+        return clampDiagramDimension(box, dimension, value);
+      }
+    }
+
+    return value;
   }
 
   /** Mirrors the open deck into the library so the list and the save see it. */

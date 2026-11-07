@@ -34,21 +34,41 @@ to the welcome page without losing the deck.
 - Nine layouts — Title, Cards, Flow, Rules, Statement, Technical, Table,
   Diagram, Closing — and a starter deck that is a tour of them: one slide per
   layout, each saying what the layout is for.
+- A table that reads as a grid: an ink header band, vertical hairlines, zebra
+  rows, uniform row heights, mono labels with detail beneath and numbers
+  right-aligned automatically. Up to five evidence columns share the width
+  evenly beside the label column.
 - Several decks at once: the **Decks** panel lists what this browser holds,
   switches the open one and deletes one; **New deck** adds another without
-  replacing anything. Each deck keeps its own slides, title and accent.
-- A **Diagram** slide is edited by dragging: boxes move in the preview (arrow
+  replacing anything. Each deck keeps its own slides, title and accent.- A **Diagram** slide is edited by dragging: boxes move in the preview (arrow
   keys nudge a focused one), double-click renames one, and arrows are drawn by
   dragging from one of a box's four dots — top, right, bottom, left — onto
   another box. Each arrow leaves from the side nearest its target and lands on
-  the nearest side of that target, the way draw.io resolves a straight floating  connection. **Arrows** in the inspector draws every arrow either straight or
+  the nearest side of that target, the way draw.io resolves a straight floating
+  connection. **Arrows** in the inspector draws every arrow either straight or
   as a 90° elbow, mid-way between the two boxes. Click an arrow to remove it;
   from the keyboard, `Enter` on a dot then `Enter` on the target box links the
-  two. Each box is a rectangle, a circle, a diamond or a cylinder, with its own
-  colour tone — accent by default, plus emphasis (a filled box), ink, muted and
-  warm — both chosen in the inspector. The drawing is generated as SVG, so the
-  HTML export stays vector; the PPTX export rasterises it, because PowerPoint
-  pictures must be bitmaps there.
+  two. Select a box to get four corner handles and drag one to resize it: sizes
+  are free, rounded to whole units, never drop below what the content needs and
+  stay on the 1000×440 drawing. The inspector mirrors the size as Width and
+  Height fields. Drag a box onto another to nest it: the container keeps its
+  title at the top left, children paint on top and move with it, and dragging a
+  child onto empty canvas takes it back out. Shift-click selects several boxes;
+  **Group** in the inspector makes them move together, **Ungroup** splits them.
+  The drawing zooms from 100% to 300% with the − / + controls in its top-right
+  corner; when zoomed in, drag empty canvas to pan and **Reset** returns to fit.
+  Zoom is a studio view only — the exported deck and the PPTX keep the full
+  drawing.
+  A box with **field rows** becomes a schema node: a title band in the box's
+  tone, then one mono row per field, up to eight. Each box is a rectangle, a
+  circle, a diamond or a cylinder, with its own colour tone — accent by default,
+  plus emphasis (a filled box), ink, muted and warm — both chosen in the
+  inspector. The drawing is generated as SVG, so the HTML export stays vector;
+  the PPTX export rasterises it, because PowerPoint pictures must be bitmaps
+  there.
+- Diagram edits have **undo and redo** (Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, or the
+  arrows in the studio header): box moves, resizes and field-row edits, one
+  step per gesture. History lives in the session, not in the deck.
 - A schema-driven inspector: each layout declares its fields, so text, lists
   and nested lists are all edited through the same component.
 - A 1280×720 preview that uses the same stylesheet as the export, so what you
@@ -151,10 +171,16 @@ declares, at any nesting depth.
   Decks are added and deleted whole; there is no duplicate-deck command beyond
   **New deck**.
 - Text is plain — no bold or links inside a slide.
-- A diagram lives on one slide: six boxes, each at its shape's fixed size (a
-  circle stays round, a diamond stays wider than tall), labels of up to 40
-  characters wrapped to three lines, and arrows with no label of their own.
-  Arrows are explicit links, so one box can feed several others.
+- A diagram lives on one slide: six boxes, each freely resizable within a
+  content-derived minimum, labels of up to 40 characters wrapped to three lines
+  (or a title band of the same length plus up to eight field names of 24
+  characters), and arrows with no label of their own. Arrows are explicit
+  links, so one box can feed several others. Boxes may nest; a parent carries
+  its children when it moves, and resizing it keeps them inside. A group shares
+  movement only — each box keeps its own size and links.
+- The table caps at five evidence columns and ten rows. When the grid no longer
+  fits the stage, the inspector warns; the PPTX export then falls back to
+  positioned shapes instead of letting PowerPoint grow the rows.
 - Box colours are five fixed tones rather than an arbitrary colour picker, so a
   diagram keeps matching whatever accent the deck uses.
 - Slide content is capped by the schema (headings ~100 characters, cards 4,

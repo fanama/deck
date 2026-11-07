@@ -150,7 +150,17 @@ export function createStarterDeck(): Deck {
       heading: "Diagram: boxes you drag, arrows you draw.",
       routing: "straight",
       boxes: [
-        { id: "tour-schema", shape: "box", tone: "accent", label: "Schema", x: 40, y: 170 },
+        {
+          id: "tour-schema",
+          shape: "box",
+          tone: "accent",
+          label: "Schema",
+          x: 40,
+          y: 170,
+          width: 200,
+          height: 112,
+          fields: ["id", "title", "owner_id"],
+        },
         { id: "tour-fields", shape: "ellipse", tone: "emphasis", label: "Fields", x: 300, y: 158 },
         { id: "tour-draft", shape: "diamond", tone: "accent", label: "Draft", x: 560, y: 168 },
         { id: "tour-export", shape: "cylinder", tone: "muted", label: "Exports", x: 800, y: 168 },
@@ -160,7 +170,7 @@ export function createStarterDeck(): Deck {
         { from: "tour-fields", to: "tour-draft" },
         { from: "tour-draft", to: "tour-export" },
       ],
-      note: "Drag a box to move it, double-click a label to rename it, drag from a dot to link two boxes.",
+      note: "Drag a box to move it, select one and drag a corner to resize it, double-click a title to rename it, drag from a dot to link two boxes.",
     }),
     slideWithContent("closing", {
       eyebrow: "LAYOUT 09 · CLOSING",

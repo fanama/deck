@@ -7,15 +7,29 @@
     slide,
     slideNumber,
     totalSlides,
-    onDiagramBoxMove,
+    onDiagramBoxesMove,
     onSlideTextChange,
+    selectedDiagramBoxId,
+    selectedDiagramBoxIds,
+    onSelectDiagramBox,
+    onDiagramBoxResize,
   }: {
     deck: Deck;
     slide: Slide | null;
     slideNumber: number;
     totalSlides: number;
-    onDiagramBoxMove?: (index: number, position: { x: number; y: number }) => void;
+    onDiagramBoxesMove?: (
+      updates: ReadonlyArray<{ index: number; x: number; y: number }>,
+      nest?: { boxId: string; parentId: string | null },
+    ) => void;
     onSlideTextChange?: (path: ContentPath, value: unknown) => void;
+    selectedDiagramBoxId?: string | null;
+    selectedDiagramBoxIds?: string[];
+    onSelectDiagramBox?: (boxId: string | null, additive?: boolean) => void;
+    onDiagramBoxResize?: (
+      index: number,
+      rect: { x: number; y: number; width: number; height: number },
+    ) => void;
   } = $props();
 
   let frameWidth = $state(0);
@@ -31,8 +45,12 @@
         {slide}
         {slideNumber}
         {totalSlides}
-        {onDiagramBoxMove}
+        {onDiagramBoxesMove}
         {onSlideTextChange}
+        {selectedDiagramBoxId}
+        {selectedDiagramBoxIds}
+        {onSelectDiagramBox}
+        {onDiagramBoxResize}
       />
     </div>
   {/if}

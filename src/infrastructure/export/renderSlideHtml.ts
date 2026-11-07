@@ -15,6 +15,7 @@ import type {
 } from "../../domain/deck/slideTypes.ts";
 import { escapeHtml } from "../../shared/escapeHtml.ts";
 import { buildDiagramSvg, DIAGRAM_COLORS } from "../../shared/diagramSvg.ts";
+import { computeTableLayout, isNumericCell } from "../../shared/tableLayout.ts";
 
 function renderEyebrow(eyebrow: string): string {
   return `      <div class="eyebrow">${escapeHtml(eyebrow)}</div>`;
@@ -202,6 +203,10 @@ function renderTechnicalSlideBody(content: TechnicalSlideContent): string {
 }
 
 function renderTableSlideBody(content: TableSlideContent): string {
+  const layout = computeTableLayout(content);
+  const colgroup = layout.columnShares
+    .map((share) => `<col style="width:${(share * 100).toFixed(2)}%">`)
+    .join("");
   const headerCells = content.columns
     .map((column) => `<th>${escapeHtml(column)}</th>`)
     .join("");
@@ -209,7 +214,12 @@ function renderTableSlideBody(content: TableSlideContent): string {
   const rowsHtml = content.rows
     .map((row) => {
       const cellsHtml = content.columns
-        .map((_column, columnIndex) => `<td>${escapeHtml(row.cells[columnIndex] ?? "")}</td>`)
+        .map((_column, columnIndex) => {
+          const cell = row.cells[columnIndex] ?? "";
+          const numericClass = isNumericCell(cell) ? ` class="is-number"` : "";
+
+          return `<td${numericClass}>${escapeHtml(cell)}</td>`;
+        })
         .join("");
       const detailHtml = row.detail
         ? `\n              <span class="row-detail">${escapeHtml(row.detail)}</span>`
@@ -227,7 +237,8 @@ function renderTableSlideBody(content: TableSlideContent): string {
     renderEyebrow(content.eyebrow),
     `      <div class="body">`,
     `        <h2>${escapeHtml(content.heading)}</h2>`,
-    `        <table class="table">`,
+    `        <table class="table" style="--table-row-height:${Math.round(layout.rowHeight)}px">`,
+    `          <colgroup>${colgroup}</colgroup>`,
     `          <thead>`,
     `            <tr><th>${escapeHtml(content.rowHeader)}</th>${headerCells}</tr>`,
     `          </thead>`,

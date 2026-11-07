@@ -58,11 +58,20 @@ export interface SelectFieldDefinition extends BaseFieldDefinition {
   options: SelectOption[];
 }
 
+export interface NumberFieldDefinition extends BaseFieldDefinition {
+  type: "number";
+  defaultValue: number;
+  min: number;
+  max: number;
+  step: number;
+}
+
 export type FieldDefinition =
   | TextFieldDefinition
   | TextareaFieldDefinition
   | ListFieldDefinition
-  | SelectFieldDefinition;
+  | SelectFieldDefinition
+  | NumberFieldDefinition;
 
 export interface SlideLayoutDefinition {
   id: SlideLayoutId;
@@ -76,10 +85,16 @@ export interface SlideLayoutDefinition {
 
 type TextFieldOptions = Partial<Pick<TextFieldDefinition, "maxLength" | "defaultValue">>;
 type TextListOptions = Partial<
-  Pick<ListFieldDefinition, "itemLabel" | "maxItems" | "defaultItems" | "createEmptyItem">
+  Pick<
+    ListFieldDefinition,
+    "itemLabel" | "maxItems" | "maxLength" | "defaultItems" | "createEmptyItem"
+  >
 >;
 type GroupListOptions = Partial<
-  Pick<ListFieldDefinition, "itemLabel" | "maxItems" | "defaultItems" | "itemFields" | "createEmptyItem">
+  Pick<
+    ListFieldDefinition,
+    "itemLabel" | "maxItems" | "maxLength" | "defaultItems" | "itemFields" | "createEmptyItem"
+  >
 >;
 
 function textField(key: string, label: string, options: TextFieldOptions = {}): TextFieldDefinition {
@@ -97,6 +112,14 @@ function selectField(
   defaultValue: string,
 ): SelectFieldDefinition {
   return { key, label, type: "select", maxLength: 40, options, defaultValue };
+}
+
+function numberField(
+  key: string,
+  label: string,
+  options: { min: number; max: number; step: number; defaultValue: number },
+): NumberFieldDefinition {
+  return { key, label, type: "number", maxLength: 6, ...options };
 }
 
 function textListField(key: string, label: string, options: TextListOptions = {}): ListFieldDefinition {
@@ -310,7 +333,7 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
   {
     id: "table",
     label: "Table",
-    purpose: "A comparison grid: one labelled column, up to three evidence columns.",
+    purpose: "A comparison grid: one labelled column, up to five evidence columns.",
     shellClass: "slide",
     fields: [
       textField("eyebrow", "Eyebrow", { defaultValue: "COMPARISON", maxLength: 80 }),
@@ -321,7 +344,7 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
       textField("rowHeader", "First column header", { defaultValue: "Item", maxLength: 40 }),
       textListField("columns", "Column headers", {
         itemLabel: "Column",
-        maxItems: 3,
+        maxItems: 5,
         defaultItems: ["Today", "With the change"],
       }),
       groupListField("rows", "Rows", {
@@ -335,7 +358,7 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
         itemFields: [
           textField("label", "Label", { maxLength: 40 }),
           textField("detail", "Detail", { maxLength: 60 }),
-          textListField("cells", "Cells", { itemLabel: "Cell", maxItems: 3 }),
+          textListField("cells", "Cells", { itemLabel: "Cell", maxItems: 5 }),
         ],
       }),
       longTextField("note", "Footnote", { maxLength: 160 }),
@@ -365,7 +388,7 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
         ],
         createEmptyItem: () => ({ id: createDiagramBoxId(), shape: "box", tone: "accent", label: "Step" }),
         itemFields: [
-          textField("label", "Label", { maxLength: 40, defaultValue: "Step" }),
+          textField("label", "Title", { maxLength: 40, defaultValue: "Step" }),
           selectField(
             "shape",
             "Shape",
@@ -378,6 +401,13 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
             DIAGRAM_TONES.map((tone) => ({ value: tone, label: DIAGRAM_TONE_LABELS[tone] })),
             "accent",
           ),
+          numberField("width", "Width", { min: 120, max: 1000, step: 10, defaultValue: 200 }),
+          numberField("height", "Height", { min: 60, max: 440, step: 10, defaultValue: 84 }),
+          textListField("fields", "Field rows", {
+            itemLabel: "Field",
+            maxItems: 8,
+            maxLength: 24,
+          }),
         ],
       }),
       longTextField("note", "Footnote", { maxLength: 160 }),

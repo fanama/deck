@@ -68,6 +68,25 @@
 
   function handleKeydown(event: KeyboardEvent): void {
     if (isTypingTarget(event.target)) return;
+
+    if ((event.metaKey || event.ctrlKey) && !event.altKey) {
+      const key = event.key.toLowerCase();
+      const isUndo = key === "z" && !event.shiftKey;
+      const isRedo = (key === "z" && event.shiftKey) || key === "y";
+
+      if (isUndo && studio.canUndoDiagramEdit) {
+        event.preventDefault();
+        studio.undoDiagramEdit();
+        return;
+      }
+
+      if (isRedo && studio.canRedoDiagramEdit) {
+        event.preventDefault();
+        studio.redoDiagramEdit();
+        return;
+      }
+    }
+
     if (event.metaKey || event.ctrlKey || event.altKey) return;
 
     if (isWelcomeOpen) {
@@ -124,8 +143,12 @@
           slide={studio.selectedSlide}
           slideNumber={studio.selectedSlideIndex + 1}
           totalSlides={studio.deck.slides.length}
-          onDiagramBoxMove={(index, position) => studio.moveDiagramBox(index, position)}
+          onDiagramBoxesMove={(updates, nest) => studio.moveDiagramBoxes(updates, nest)}
           onSlideTextChange={(path, value) => studio.updateSlideField(path, value)}
+          selectedDiagramBoxId={studio.selectedDiagramBoxId}
+          selectedDiagramBoxIds={studio.selectedDiagramBoxIds}
+          onSelectDiagramBox={(boxId, additive) => studio.selectDiagramBox(boxId, additive)}
+          onDiagramBoxResize={(index, rect) => studio.resizeDiagramBox(index, rect)}
         />
 
         <div class="preview-controls">

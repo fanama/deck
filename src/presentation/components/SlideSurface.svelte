@@ -19,16 +19,30 @@
     deck,
     slideNumber,
     totalSlides,
-    onDiagramBoxMove,
+    onDiagramBoxesMove,
     onSlideTextChange,
+    selectedDiagramBoxId,
+    selectedDiagramBoxIds,
+    onSelectDiagramBox,
+    onDiagramBoxResize,
   }: {
     slide: Slide | null;
     deck: Deck;
     slideNumber: number;
     totalSlides: number;
     /** Passed by the studio only, so presenting and the welcome page stay read-only. */
-    onDiagramBoxMove?: (index: number, position: { x: number; y: number }) => void;
+    onDiagramBoxesMove?: (
+      updates: ReadonlyArray<{ index: number; x: number; y: number }>,
+      nest?: { boxId: string; parentId: string | null },
+    ) => void;
     onSlideTextChange?: (path: ContentPath, value: unknown) => void;
+    selectedDiagramBoxId?: string | null;
+    selectedDiagramBoxIds?: string[];
+    onSelectDiagramBox?: (boxId: string | null, additive?: boolean) => void;
+    onDiagramBoxResize?: (
+      index: number,
+      rect: { x: number; y: number; width: number; height: number },
+    ) => void;
   } = $props();
 
   // The slide components read this through context, so each layout edits its
@@ -61,7 +75,11 @@
       <DiagramSlide
         content={slide.content}
         accent={deck.theme.accentColor}
-        onMoveBox={onDiagramBoxMove}
+        onMoveBoxes={onDiagramBoxesMove}
+        selectedBoxId={selectedDiagramBoxId}
+        selectedBoxIds={selectedDiagramBoxIds}
+        onSelectBox={onSelectDiagramBox}
+        onResizeBox={onDiagramBoxResize}
       />
     {:else if slide.layout === "closing"}
       <ClosingSlide content={slide.content} />

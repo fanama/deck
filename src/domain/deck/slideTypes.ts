@@ -110,6 +110,15 @@ export interface DiagramBox {
   /** Top-left corner of the shape's box, in the drawing's own 1000×440 units. */
   x: number;
   y: number;
+  /** Drawing units; absent in older decks and filled in by the normaliser. */
+  width?: number;
+  height?: number;
+  /** Field names rendered under the title band; empty/absent means a plain box. */
+  fields?: string[];
+  /** Id of the box this one sits inside; absent at the top level. */
+  parentId?: string;
+  /** Boxes sharing a group id move together. */
+  groupId?: string;
 }
 
 export interface DiagramLink {

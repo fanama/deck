@@ -16,7 +16,7 @@
     /** The edited content object; cast here so callers can pass typed slide content. */
     value: unknown;
     path?: ContentPath;
-    onChange: (path: ContentPath, value: string) => void;
+    onChange: (path: ContentPath, value: unknown) => void;
     onAppendItem: (path: ContentPath) => void;
     onRemoveItem: (path: ContentPath, index: number) => void;
     onMoveItem: (path: ContentPath, fromIndex: number, toIndex: number) => void;
@@ -31,6 +31,19 @@
 
   function itemText(item: unknown): string {
     return typeof item === "string" ? item : "";
+  }
+
+  function numberValue(key: string): number {
+    const raw = content[key];
+    const parsed = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function commitNumber(key: string, field: { min: number; max: number }, raw: string): void {
+    const parsed = Number.parseFloat(raw);
+    if (!Number.isFinite(parsed)) return;
+
+    onChange([...path, key], Math.min(field.max, Math.max(field.min, parsed)));
   }
 
   function listItems(fieldKey: string): unknown[] {
@@ -64,6 +77,19 @@
         oninput={(event) => onChange(fieldPath, event.currentTarget.value)}
       ></textarea>
       <span class="field-hint">{textValue(field.key).length} / {field.maxLength}</span>
+    </label>
+  {:else if field.type === "number"}
+    <label class="field">
+      <span class="field-label">{field.label}</span>
+      <input
+        class="field-input"
+        type="number"
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        value={numberValue(field.key)}
+        onchange={(event) => commitNumber(field.key, field, event.currentTarget.value)}
+      />
     </label>
   {:else if field.type === "select"}
     <label class="field">

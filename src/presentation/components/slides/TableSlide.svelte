@@ -1,12 +1,19 @@
 <script lang="ts">
   import type { TableRow, TableSlideContent } from "../../../domain/deck/slideTypes.ts";
+  import { computeTableLayout, isNumericCell } from "../../../shared/tableLayout.ts";
   import EditableText from "../EditableText.svelte";
 
   let { content }: { content: TableSlideContent } = $props();
 
+  const layout = $derived(computeTableLayout(content));
+
   /** A row can sit under fewer headers than the table declares; pad the gap. */
   function paddedCells(row: TableRow): string[] {
     return content.columns.map((_column, index) => row.cells[index] ?? "");
+  }
+
+  function columnWidth(share: number): string {
+    return `${(share * 100).toFixed(2)}%`;
   }
 </script>
 
@@ -15,7 +22,12 @@
 <div class="body">
   <EditableText as="h2" path={["heading"]} value={content.heading} />
 
-  <table class="table">
+  <table class="table" style="--table-row-height: {Math.round(layout.rowHeight)}px">
+    <colgroup>
+      {#each layout.columnShares as share, index (index)}
+        <col style="width: {columnWidth(share)}" />
+      {/each}
+    </colgroup>
     <thead>
       <tr>
         <EditableText as="th" path={["rowHeader"]} value={content.rowHeader} />
@@ -46,6 +58,7 @@
           {#each paddedCells(row) as cell, cellIndex (cellIndex)}
             <EditableText
               as="td"
+              class={isNumericCell(cell) ? "is-number" : undefined}
               path={["rows", rowIndex, "cells", cellIndex]}
               value={cell}
             />

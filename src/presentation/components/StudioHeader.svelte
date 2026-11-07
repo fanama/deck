@@ -42,6 +42,24 @@
   </button>
 
   <div class="header-actions">
+    <div class="history-actions">
+      <button
+        class="icon-button"
+        type="button"
+        title="Undo diagram edit (Cmd/Ctrl+Z)"
+        aria-label="Undo diagram edit"
+        disabled={!studio.canUndoDiagramEdit}
+        onclick={() => studio.undoDiagramEdit()}
+      >↶</button>
+      <button
+        class="icon-button"
+        type="button"
+        title="Redo diagram edit (Shift+Cmd/Ctrl+Z)"
+        aria-label="Redo diagram edit"
+        disabled={!studio.canRedoDiagramEdit}
+        onclick={() => studio.redoDiagramEdit()}
+      >↷</button>
+    </div>
     <span class="save-indicator" class:is-dirty={!studio.isSaved}>
       {studio.isSaved ? "Saved in this browser" : "Unsaved changes"}
     </span>

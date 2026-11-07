@@ -5,7 +5,7 @@
 
   let { studio }: { studio: PresentationStudio } = $props();
 
-  function handleFieldChange(path: ContentPath, value: string): void {
+  function handleFieldChange(path: ContentPath, value: unknown): void {
     studio.updateSlideField(path, value);
   }
 
@@ -36,6 +36,38 @@
         <li class="problem {problem.severity}">{problem.message}</li>
       {/each}
     </ul>
+  {/if}
+
+  {#if studio.selectedSlide?.layout === "diagram" && studio.selectedDiagramBoxIds.length > 0}
+    <div class="diagram-selection-tools">
+      <div class="diagram-selection-head">
+        <span class="field-label">
+          {studio.selectedDiagramBoxIds.length === 1
+            ? "1 box selected"
+            : `${studio.selectedDiagramBoxIds.length} boxes selected`}
+        </span>
+        <div class="icon-actions">
+          {#if studio.canGroupSelectedDiagramBoxes}
+            <button
+              class="button small"
+              type="button"
+              onclick={() => studio.groupSelectedDiagramBoxes()}>Group</button
+            >
+          {/if}
+          {#if studio.selectedDiagramGroupId}
+            <button
+              class="button small"
+              type="button"
+              onclick={() => studio.ungroupSelectedDiagramBoxes()}>Ungroup</button
+            >
+          {/if}
+        </div>
+      </div>
+      <p class="diagram-selection-hint">
+        Shift-click to select several boxes, then Group. Drag a box onto another to put it inside;
+        drag it out to take it out.
+      </p>
+    </div>
   {/if}
 
   {#if studio.selectedSlide}

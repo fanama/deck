@@ -15,8 +15,10 @@ import type {
 } from "../../domain/deck/slideTypes.ts";
 import { SHAPE_TREE_CLOSE, SHAPE_TREE_OPEN, pictureXml, shapeXml, slideBackgroundXml } from "./pptxShapes.ts";
 import type { ShapeFill } from "./pptxShapes.ts";
+import { computeTableLayout, isNumericCell } from "../../shared/tableLayout.ts";
 import { estimateTextWidth, measureText, textBoxXml } from "./pptxText.ts";
 import type { ParagraphSpec, TextStyle } from "./pptxText.ts";
+import { tableGraphicFrameXml } from "./pptxTable.ts";
 import { frameForLayout, paletteForTheme } from "./pptxUnits.ts";
 import type { Palette, SlideFrame } from "./pptxUnits.ts";
 
@@ -702,11 +704,9 @@ function renderStatementSlide(canvas: SlideCanvas, content: StatementSlideConten
 
 /* -- table --------------------------------------------------------------- */
 
-const TABLE_LABEL_COLUMN_SHARE = 0.28;
-const TABLE_ROW_PADDING = 5;
-
-function renderTableSlide(canvas: SlideCanvas, content: TableSlideContent): void {
+function renderTableSlideWithShapes(canvas: SlideCanvas, content: TableSlideContent): void {
   const { frame, palette } = canvas;
+  const layout = computeTableLayout(content);
   const eyebrowBottom = writeEyebrow(canvas, content.eyebrow, palette.muted);
 
   const headingStyle: TextStyle = { fontPx: 40, lineHeight: 1.12, family: "serif", bold: true, color: palette.ink };
@@ -717,129 +717,222 @@ function renderTableSlide(canvas: SlideCanvas, content: TableSlideContent): void
     bold: true,
     caps: true,
     letterSpacingPx: 1.5,
-    color: palette.muted,
+    color: palette.paper,
   };
   const labelStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.25, family: "mono", bold: true, color: palette.ink };
   const detailStyle: TextStyle = { fontPx: 9.5, lineHeight: 1.25, family: "sans", color: palette.muted };
   const cellStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.3, family: "sans", color: palette.inkSoft };
   const noteStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
 
-  const heading = measureText(content.heading, headingStyle, Math.min(frame.width, lineLengthPx(40, 34, "serif")));
-
-  const labelWidth = frame.width * TABLE_LABEL_COLUMN_SHARE;
-  const dataColumnCount = Math.max(1, content.columns.length);
-  const columnWidth = (frame.width - labelWidth) / dataColumnCount;
-  const headerHeight = measureText(content.rowHeader, headerStyle, labelWidth).heightPx;
-  const ruleGap = 6;
-
-  const rowHeights = content.rows.map((row) => {
-    const labelHeight = measureText(row.label, labelStyle, labelWidth - 12).heightPx;
-    const detailHeight = row.detail.trim() ? measureText(row.detail, detailStyle, labelWidth - 12).heightPx : 0;
-    const cellHeights = content.columns.map(
-      (_column, index) => measureText(row.cells[index] ?? "", cellStyle, columnWidth - 12).heightPx,
-    );
-
-    return Math.max(labelHeight + detailHeight, ...cellHeights, 0) + TABLE_ROW_PADDING * 2;
-  });
-  const rowsHeight = rowHeights.reduce((total, rowHeight) => total + rowHeight, 0);
+  const headingWidth = Math.min(frame.width, lineLengthPx(40, 34, "serif"));
+  const heading = measureText(content.heading, headingStyle, headingWidth);
+  const labelWidth = frame.width * layout.columnShares[0];
+  const columnWidth = content.columns.length > 0 ? (frame.width - labelWidth) / content.columns.length : 0;
   const note = content.note.trim() ? measureText(content.note, noteStyle, frame.width) : null;
+  const tableHeight = layout.headerHeight + layout.rowHeight * content.rows.length;
 
   const blockHeight =
-    heading.heightPx + BODY_GAP + headerHeight + ruleGap + rowsHeight + (note ? BODY_GAP + note.heightPx : 0);
+    heading.heightPx + BODY_GAP + tableHeight + (note ? BODY_GAP + note.heightPx : 0);
   const top = centeredTop(bodyRegion(canvas, eyebrowBottom), blockHeight);
 
-  writeText(canvas, "Heading", frame.x, top, Math.min(frame.width, lineLengthPx(40, 34, "serif")), heading.heightPx + 6, [
+  writeText(canvas, "Heading", frame.x, top, headingWidth, heading.heightPx + 6, [
     { text: content.heading, style: headingStyle },
   ]);
 
   const headerTop = top + heading.heightPx + BODY_GAP;
-  writeText(canvas, "Column header", frame.x, headerTop, labelWidth, headerHeight + 2, [
-    { text: content.rowHeader, style: headerStyle },
-  ]);
+  const tableBottom = headerTop + tableHeight;
+  const bodyTop = headerTop + layout.headerHeight;
+
+  canvas.shapes.push(
+    shapeXml({
+      id: canvas.nextId(),
+      name: "Table header band",
+      x: frame.x,
+      y: headerTop,
+      width: frame.width,
+      height: layout.headerHeight,
+      fill: palette.ink,
+    }),
+  );
+
+  content.rows.forEach((_row, rowIndex) => {
+    if (rowIndex % 2 === 0) return;
+
+    canvas.shapes.push(
+      shapeXml({
+        id: canvas.nextId(),
+        name: `Row ${rowIndex + 1} band`,
+        x: frame.x,
+        y: bodyTop + rowIndex * layout.rowHeight,
+        width: frame.width,
+        height: layout.rowHeight,
+        fill: palette.panel,
+      }),
+    );
+  });
+
+  content.rows.forEach((_row, rowIndex) => {
+    canvas.shapes.push(
+      shapeXml({
+        id: canvas.nextId(),
+        name: `Row ${rowIndex + 1} rule`,
+        x: frame.x,
+        y: bodyTop + rowIndex * layout.rowHeight,
+        width: frame.width,
+        height: 1,
+        fill: palette.line,
+      }),
+    );
+  });
+
+  content.columns.forEach((_column, index) => {
+    canvas.shapes.push(
+      shapeXml({
+        id: canvas.nextId(),
+        name: `Column ${index + 1} rule`,
+        x: frame.x + labelWidth + index * columnWidth,
+        y: bodyTop,
+        width: 1,
+        height: tableBottom - bodyTop,
+        fill: palette.line,
+      }),
+    );
+    canvas.shapes.push(
+      shapeXml({
+        id: canvas.nextId(),
+        name: `Header divider ${index + 1}`,
+        x: frame.x + labelWidth + index * columnWidth,
+        y: headerTop,
+        width: 1,
+        height: layout.headerHeight,
+        fill: { color: "FFFFFF", alpha: 0.16 },
+      }),
+    );
+  });
+
+  writeText(
+    canvas,
+    "Column header",
+    frame.x,
+    headerTop,
+    labelWidth - 12,
+    layout.headerHeight,
+    [{ text: content.rowHeader, style: headerStyle }],
+    "ctr",
+  );
 
   content.columns.forEach((column, index) => {
     writeText(
       canvas,
       `Column header ${index + 1}`,
-      frame.x + labelWidth + index * columnWidth,
+      frame.x + labelWidth + index * columnWidth + 12,
       headerTop,
-      columnWidth,
-      headerHeight + 2,
+      columnWidth - 24,
+      layout.headerHeight,
       [{ text: column, style: headerStyle }],
+      "ctr",
     );
   });
 
-  const headerRuleY = headerTop + headerHeight + ruleGap - 2;
-
-  canvas.shapes.push(
-    shapeXml({
-      id: canvas.nextId(),
-      name: "Table header rule",
-      x: frame.x,
-      y: headerRuleY,
-      width: frame.width,
-      height: 1,
-      fill: palette.ink,
-    }),
-  );
-
-  let rowTop = headerRuleY + 1;
-
   content.rows.forEach((row, rowIndex) => {
-    if (rowIndex > 0) {
-      canvas.shapes.push(
-        shapeXml({
-          id: canvas.nextId(),
-          name: `Row ${rowIndex + 1} rule`,
-          x: frame.x,
-          y: rowTop,
-          width: frame.width,
-          height: 1,
-          fill: palette.line,
-        }),
-      );
-    }
-
-    const labelHeight = measureText(row.label, labelStyle, labelWidth - 12).heightPx;
-    writeText(canvas, `Row ${rowIndex + 1} label`, frame.x, rowTop + TABLE_ROW_PADDING, labelWidth - 14, labelHeight + 2, [
-      { text: row.label, style: labelStyle },
-    ]);
+    const rowTop = bodyTop + rowIndex * layout.rowHeight;
+    const labelParagraphs: ParagraphSpec[] = [{ text: row.label, style: labelStyle }];
 
     if (row.detail.trim()) {
-      const detail = measureText(row.detail, detailStyle, labelWidth - 12);
-      writeText(
-        canvas,
-        `Row ${rowIndex + 1} detail`,
-        frame.x,
-        rowTop + TABLE_ROW_PADDING + labelHeight,
-        labelWidth - 14,
-        detail.heightPx + 2,
-        [{ text: row.detail, style: detailStyle }],
-      );
+      labelParagraphs.push({ text: row.detail, style: detailStyle });
     }
+
+    writeText(
+      canvas,
+      `Row ${rowIndex + 1} label`,
+      frame.x,
+      rowTop,
+      labelWidth - 12,
+      layout.rowHeight,
+      labelParagraphs,
+      "ctr",
+    );
 
     content.columns.forEach((_column, columnIndex) => {
       const cellText = row.cells[columnIndex] ?? "";
-      const cell = measureText(cellText, cellStyle, columnWidth - 12);
 
       writeText(
         canvas,
         `Row ${rowIndex + 1} cell ${columnIndex + 1}`,
-        frame.x + labelWidth + columnIndex * columnWidth,
-        rowTop + TABLE_ROW_PADDING,
-        columnWidth - 12,
-        cell.heightPx + 2,
-        [{ text: cellText, style: cellStyle }],
+        frame.x + labelWidth + columnIndex * columnWidth + 12,
+        rowTop,
+        columnWidth - 24,
+        layout.rowHeight,
+        [{ text: cellText, style: cellStyle, align: isNumericCell(cellText) ? "r" : "l" }],
+        "ctr",
       );
     });
-
-    rowTop += rowHeights[rowIndex];
   });
 
   if (note) {
-    writeText(canvas, "Footnote", frame.x, rowTop + BODY_GAP, frame.width, note.heightPx + 2, [
+    writeText(canvas, "Footnote", frame.x, tableBottom + BODY_GAP, frame.width, note.heightPx + 2, [
       { text: content.note, style: noteStyle },
     ]);
+  }
+}
+
+/**
+ * A native table when the grid fits the stage, because PowerPoint then treats
+ * it as a table. A table that needs more height than the body has falls back
+ * to positioned shapes, which keep their geometry instead of auto-growing.
+ */
+function renderTableSlide(canvas: SlideCanvas, content: TableSlideContent): void {
+  const layout = computeTableLayout(content);
+
+  if (layout.overflowsStage || content.rows.length === 0) {
+    renderTableSlideWithShapes(canvas, content);
+    return;
+  }
+
+  const { frame, palette } = canvas;
+  const eyebrowBottom = writeEyebrow(canvas, content.eyebrow, palette.muted);
+  const headingStyle: TextStyle = {
+    fontPx: 40,
+    lineHeight: 1.12,
+    family: "serif",
+    bold: true,
+    color: palette.ink,
+  };
+  const noteStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
+  const headingWidth = Math.min(frame.width, lineLengthPx(40, 34, "serif"));
+  const heading = measureText(content.heading, headingStyle, headingWidth);
+  const note = content.note.trim() ? measureText(content.note, noteStyle, frame.width) : null;
+  const tableHeight = layout.headerHeight + layout.rowHeight * content.rows.length;
+  const blockHeight =
+    heading.heightPx + BODY_GAP + tableHeight + (note ? BODY_GAP + note.heightPx : 0);
+  const top = centeredTop(bodyRegion(canvas, eyebrowBottom), blockHeight);
+
+  writeText(canvas, "Heading", frame.x, top, headingWidth, heading.heightPx + 6, [
+    { text: content.heading, style: headingStyle },
+  ]);
+
+  canvas.shapes.push(
+    tableGraphicFrameXml({
+      id: canvas.nextId(),
+      name: "Table",
+      x: frame.x,
+      y: top + heading.heightPx + BODY_GAP,
+      width: frame.width,
+      content,
+      palette,
+    }),
+  );
+
+  if (note) {
+    writeText(
+      canvas,
+      "Footnote",
+      frame.x,
+      top + heading.heightPx + BODY_GAP + tableHeight + BODY_GAP,
+      frame.width,
+      note.heightPx + 2,
+      [{ text: content.note, style: noteStyle }],
+    );
   }
 }
 
