@@ -16,8 +16,12 @@ import {
   moveSlideTo,
   removeSlideById,
   removeSlideContentItem,
+  resetDeckTheme,
+  setSlideBackgroundImage,
   updateDeckAccentColor,
+  updateDeckBackgroundColor,
   updateDeckFooterLabel,
+  updateDeckTextColor,
   updateDeckTitle,
   updateSlideContentAtPath,
 } from "../../domain/deck/Deck.ts";
@@ -31,6 +35,7 @@ import type {
   DiagramRouting,
   DiagramSlideContent,
   Slide,
+  SlideImage,
   SlideLayoutId,
 } from "../../domain/deck/slideTypes.ts";
 import type { DeckLibrary, DeckRepository } from "../../domain/ports/deckRepositoryPort.ts";
@@ -305,6 +310,29 @@ export class PresentationStudio {
 
   changeAccentColor(accentColor: string): void {
     this.deck = updateDeckAccentColor(this.deck, accentColor);
+    this.markChanged();
+  }
+
+  changeBackgroundColor(backgroundColor: string): void {
+    this.deck = updateDeckBackgroundColor(this.deck, backgroundColor);
+    this.markChanged();
+  }
+
+  changeTextColor(textColor: string): void {
+    this.deck = updateDeckTextColor(this.deck, textColor);
+    this.markChanged();
+  }
+
+  resetDeckColors(): void {
+    this.deck = resetDeckTheme(this.deck);
+    this.markChanged();
+  }
+
+  changeSlideBackgroundImage(image: SlideImage | null): void {
+    const slide = this.selectedSlide;
+    if (!slide) return;
+
+    this.deck = setSlideBackgroundImage(this.deck, slide.id, image);
     this.markChanged();
   }
 

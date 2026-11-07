@@ -112,6 +112,13 @@ export function paletteForTheme(theme: DeckTheme | undefined): Palette {
 
   return {
     ...BASE_PALETTE,
+    ink: withoutHash(variables["--ink"]),
+    inkSoft: withoutHash(variables["--ink-soft"]),
+    muted: withoutHash(variables["--muted"]),
+    line: withoutHash(variables["--line"]),
+    panel: withoutHash(variables["--panel"]),
+    card: withoutHash(variables["--card"]),
+    paper: withoutHash(variables["--paper"]),
     accent: withoutHash(variables["--accent"]),
     accentSoft: withoutHash(variables["--accent-soft"]),
     accentLine: withoutHash(variables["--accent-line"]),

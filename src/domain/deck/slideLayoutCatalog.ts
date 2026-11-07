@@ -420,6 +420,24 @@ export const SLIDE_LAYOUTS: SlideLayoutDefinition[] = [
     },
   },
   {
+    id: "image",
+    label: "Image",
+    purpose: "One large image with a heading and a caption that gives it context.",
+    shellClass: "slide",
+    fields: [
+      textField("eyebrow", "Eyebrow", { defaultValue: "IMAGE", maxLength: 80 }),
+      textField("heading", "Heading", {
+        defaultValue: "One image, given room to be read.",
+        maxLength: 100,
+      }),
+      longTextField("caption", "Caption", {
+        defaultValue: "Say what the image shows and why it matters.",
+        maxLength: 220,
+      }),
+    ],
+    extraDefaults: { image: null },
+  },
+  {
     id: "closing",
     label: "Closing",
     purpose: "Ends on a decision or a question, never a thank you.",

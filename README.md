@@ -31,9 +31,14 @@ source on GitHub (`github.com/fanama`) from the header. **Open the studio** (or
 `Enter`) enters the editor, and the brand in the studio header brings you back
 to the welcome page without losing the deck.
 
-- Nine layouts — Title, Cards, Flow, Rules, Statement, Technical, Table,
-  Diagram, Closing — and a starter deck that is a tour of them: one slide per
-  layout, each saying what the layout is for.
+- Ten layouts — Title, Cards, Flow, Rules, Statement, Technical, Table,
+  Diagram, Image, Closing — and a starter deck that is a tour of them: one
+  slide per layout, each saying what the layout is for.
+- **Images** can be used two ways: every slide can take a decorative
+  **background image** that is cropped to cover the stage, and the **Image**
+  layout gives one picture a large fitted frame with a heading and caption.
+  Images are chosen in the inspector, scaled to at most 1600 px, stored inside
+  the deck as data URLs, and carried into the HTML and PPTX exports.
 - A table that reads as a grid: an ink header band, vertical hairlines, zebra
   rows, uniform row heights, mono labels with detail beneath and numbers
   right-aligned automatically. Up to five evidence columns share the width
@@ -73,8 +78,11 @@ to the welcome page without losing the deck.
   and nested lists are all edited through the same component.
 - A 1280×720 preview that uses the same stylesheet as the export, so what you
   see is what the file renders.
-- Deck-level title, footer label and a single accent colour; tints, the title
-  gradient and pill borders are derived from it.
+- Deck-level title, footer label and three colours — accent, background and text.
+  Tints, borders, panels, the title gradient and diagram colours derive from
+  them, and changing the background flips the text to a readable ink or white
+  when the current text would disappear. The palette applies to every slide in
+  the preview, the HTML export and the PPTX.
 - Validation before export: an empty heading or a missing deck title blocks;
   over-long headings and blocks warn.
 - **Import deck** reads a `.json` deck file or any HTML file this studio
@@ -88,7 +96,7 @@ to the welcome page without losing the deck.
 - Reordering, duplicating and deleting slides; arrow-key navigation.
 - **Export PPTX** writes the same deck as a native PowerPoint file: every
   heading is an editable text box, every card and rule a native shape, and the
-  deck accent becomes the theme's accent colour.
+  deck palette becomes the PowerPoint theme colours.
 
 ## Types
 
@@ -190,6 +198,9 @@ declares, at any nesting depth.
 - The PPTX uses one master and one blank layout with absolutely positioned
   text, so a paragraph edited long enough to rewrap can push past its
   neighbour. Fonts travel by name (Georgia, Arial, Consolas), not embedded.
-  Diagram slides are the one rasterised element: the SVG is drawn to a PNG
-  when the file is written, so it is a picture in PowerPoint, not shapes.
+  Diagrams are rasterised when the file is written; uploaded images are
+  embedded as pictures. Both are pictures in PowerPoint, not editable shapes.
+- Images live in the deck's data URL, so a library with many photographs can
+  reach the browser's `localStorage` quota. The uploader scales images to at
+  most 1600 px and rejects files that remain too large after optimisation.
 - There is no PDF writer; print the exported HTML instead.

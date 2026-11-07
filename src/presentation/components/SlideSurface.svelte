@@ -6,6 +6,7 @@
   import ClosingSlide from "./slides/ClosingSlide.svelte";
   import DiagramSlide from "./slides/DiagramSlide.svelte";
   import FlowSlide from "./slides/FlowSlide.svelte";
+  import ImageSlide from "./slides/ImageSlide.svelte";
   import RulesSlide from "./slides/RulesSlide.svelte";
   import StatementSlide from "./slides/StatementSlide.svelte";
   import TableSlide from "./slides/TableSlide.svelte";
@@ -56,7 +57,16 @@
 </script>
 
 {#if slide}
-  <section class="{slideShellClassForLayout(slide.layout)} active">
+  <section
+    class="{slideShellClassForLayout(slide.layout)} active"
+    class:has-background-image={Boolean(slide.backgroundImage)}
+  >
+    {#if slide.backgroundImage}
+      <div class="slide-backdrop" aria-hidden="true">
+        <img src={slide.backgroundImage.src} alt="" />
+      </div>
+    {/if}
+
     {#if slide.layout === "title"}
       <TitleSlide content={slide.content} />
     {:else if slide.layout === "cards"}
@@ -74,13 +84,15 @@
     {:else if slide.layout === "diagram"}
       <DiagramSlide
         content={slide.content}
-        accent={deck.theme.accentColor}
+        theme={deck.theme}
         onMoveBoxes={onDiagramBoxesMove}
         selectedBoxId={selectedDiagramBoxId}
         selectedBoxIds={selectedDiagramBoxIds}
         onSelectBox={onSelectDiagramBox}
         onResizeBox={onDiagramBoxResize}
       />
+    {:else if slide.layout === "image"}
+      <ImageSlide content={slide.content} />
     {:else if slide.layout === "closing"}
       <ClosingSlide content={slide.content} />
     {/if}

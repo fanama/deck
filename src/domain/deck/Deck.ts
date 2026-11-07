@@ -4,17 +4,25 @@ import {
   removeValueAtPath,
   withValueAtPath,
 } from "../../shared/immutablePath.ts";
-import { createDeckTheme, DEFAULT_ACCENT_COLOR } from "./deckTheme.ts";
+import {
+  contrastRatio,
+  createDeckTheme,
+  DEFAULT_ACCENT_COLOR,
+  normaliseHexColor,
+  readableTextColor,
+} from "./deckTheme.ts";
 import {
   createDefaultContentForLayout,
   findSlideLayout,
   isKnownSlideLayout,
 } from "./slideLayoutCatalog.ts";
+import { normalizeSlideImage } from "./slideImage.ts";
 import type {
   ContentPath,
   Deck,
   Slide,
   SlideContent,
+  SlideImage,
   SlideLayoutId,
   SlideOf,
 } from "./slideTypes.ts";
@@ -49,15 +57,28 @@ export interface CreateDeckInput {
   title: string;
   footerLabel: string;
   accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
   slides: Slide[];
 }
 
-export function createDeck({ title, footerLabel, accentColor, slides }: CreateDeckInput): Deck {
+export function createDeck({
+  title,
+  footerLabel,
+  accentColor,
+  backgroundColor,
+  textColor,
+  slides,
+}: CreateDeckInput): Deck {
   return {
     id: createId("deck"),
     title,
     footerLabel,
-    theme: createDeckTheme(accentColor ?? DEFAULT_ACCENT_COLOR),
+    theme: createDeckTheme(
+      accentColor ?? DEFAULT_ACCENT_COLOR,
+      backgroundColor,
+      textColor,
+    ),
     slides,
     updatedAt: new Date().toISOString(),
   };
@@ -90,7 +111,52 @@ export function updateDeckFooterLabel(deck: Deck, footerLabel: string): Deck {
 }
 
 export function updateDeckAccentColor(deck: Deck, accentColor: string): Deck {
-  return touchDeck({ ...deck, theme: createDeckTheme(accentColor) });
+  return touchDeck({
+    ...deck,
+    theme: createDeckTheme(accentColor, deck.theme.backgroundColor, deck.theme.textColor),
+  });
+}
+
+/** A new background keeps readable text when the current colour would vanish. */
+export function updateDeckBackgroundColor(deck: Deck, backgroundColor: string): Deck {
+  const background = normaliseHexColor(backgroundColor) ?? deck.theme.backgroundColor;
+  const textColor =
+    contrastRatio(background, deck.theme.textColor) >= 4.5
+      ? deck.theme.textColor
+      : readableTextColor(background);
+
+  return touchDeck({
+    ...deck,
+    theme: createDeckTheme(deck.theme.accentColor, background, textColor),
+  });
+}
+
+export function updateDeckTextColor(deck: Deck, textColor: string): Deck {
+  return touchDeck({
+    ...deck,
+    theme: createDeckTheme(deck.theme.accentColor, deck.theme.backgroundColor, textColor),
+  });
+}
+
+export function resetDeckTheme(deck: Deck): Deck {
+  return touchDeck({ ...deck, theme: createDeckTheme(DEFAULT_ACCENT_COLOR) });
+}
+
+/** Sets or clears the decorative image behind one slide. */
+export function setSlideBackgroundImage(
+  deck: Deck,
+  slideId: string,
+  image: SlideImage | null,
+): Deck {
+  const slide = findSlideById(deck, slideId);
+  if (!slide) return deck;
+
+  const normalized = image ? normalizeSlideImage(image) : null;
+
+  return replaceSlide(deck, {
+    ...slide,
+    backgroundImage: normalized ?? undefined,
+  } as Slide);
 }
 
 export function insertSlideAfterSlide(deck: Deck, slide: Slide, afterSlideId: string): Deck {
@@ -203,6 +269,11 @@ function mergeSlideContentWithDefaults(layoutId: SlideLayoutId, storedContent: u
   for (const [key, defaultValue] of Object.entries(defaults)) {
     const storedValue = stored[key];
 
+    if (layoutId === "image" && key === "image") {
+      merged[key] = normalizeSlideImage(storedValue);
+      continue;
+    }
+
     if (Array.isArray(defaultValue)) {
       merged[key] = Array.isArray(storedValue) ? storedValue : defaultValue;
       continue;
@@ -228,23 +299,29 @@ export function restoreDeckFromStoredValue(storedValue: unknown): Deck | null {
     )
     .map((slide): Slide => {
       const layout = slide.layout as SlideLayoutId;
+      const backgroundImage = normalizeSlideImage(slide.backgroundImage);
 
       return {
         id: typeof slide.id === "string" ? slide.id : createId("slide"),
         layout,
         content: mergeSlideContentWithDefaults(layout, slide.content),
+        ...(backgroundImage ? { backgroundImage } : {}),
       } as Slide;
     });
 
   if (slides.length === 0) return null;
 
-  const storedTheme = isRecord(storedValue.theme) ? storedValue.theme.accentColor : undefined;
+  const storedTheme = isRecord(storedValue.theme) ? storedValue.theme : {};
 
   return {
     id: typeof storedValue.id === "string" ? storedValue.id : createId("deck"),
     title: typeof storedValue.title === "string" ? storedValue.title : "Untitled deck",
     footerLabel: typeof storedValue.footerLabel === "string" ? storedValue.footerLabel : "Untitled deck",
-    theme: createDeckTheme(storedTheme),
+    theme: createDeckTheme(
+      storedTheme.accentColor,
+      storedTheme.backgroundColor,
+      storedTheme.textColor,
+    ),
     slides,
     updatedAt: typeof storedValue.updatedAt === "string" ? storedValue.updatedAt : new Date().toISOString(),
   };

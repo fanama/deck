@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getContext, tick } from "svelte";
+  import { buildDiagramThemeColors } from "../../../domain/deck/deckTheme.ts";
   import type {
+    DeckTheme,
     DiagramBox,
     DiagramLink,
     DiagramSlideContent,
@@ -8,7 +10,6 @@
   import type { DiagramAnchorSide, DiagramArrow, DiagramBoxStyle } from "../../../shared/diagramSvg.ts";
   import {
     DIAGRAM_ANCHOR_SIDES,
-    DIAGRAM_COLORS,
     DIAGRAM_HEIGHT,
     DIAGRAM_LABEL_LINE_HEIGHT,
     DIAGRAM_WIDTH,
@@ -34,7 +35,7 @@
 
   let {
     content,
-    accent,
+    theme,
     onMoveBoxes,
     selectedBoxId,
     selectedBoxIds,
@@ -42,8 +43,8 @@
     onResizeBox,
   }: {
     content: DiagramSlideContent;
-    /** The deck accent, so the drawing follows the theme outside the studio. */
-    accent: string;
+    /** The deck palette, so the drawing follows the theme outside the studio. */
+    theme: DeckTheme;
     /** Provided by the studio only: the exported deck has nothing to drag. */
     onMoveBoxes?: (
       updates: ReadonlyArray<{ index: number; x: number; y: number }>,
@@ -58,7 +59,7 @@
     ) => void;
   } = $props();
 
-  const colors = $derived({ ...DIAGRAM_COLORS, accent });
+  const colors = $derived(buildDiagramThemeColors(theme));
   const boxes = $derived(normalizeDiagramBoxes(content.boxes));
   const links = $derived(normalizeDiagramLinks(content.links, boxes));
   const routing = $derived(normalizeDiagramRouting(content.routing));

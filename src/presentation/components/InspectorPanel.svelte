@@ -2,6 +2,7 @@
   import type { ContentPath } from "../../domain/deck/slideTypes.ts";
   import type { PresentationStudio } from "../state/PresentationStudio.svelte.ts";
   import FieldEditor from "./FieldEditor.svelte";
+  import ImageUploadField from "./ImageUploadField.svelte";
 
   let { studio }: { studio: PresentationStudio } = $props();
 
@@ -71,9 +72,27 @@
   {/if}
 
   {#if studio.selectedSlide}
+    {@const selectedSlide = studio.selectedSlide}
+
+    <ImageUploadField
+      label="Background image"
+      image={selectedSlide.backgroundImage}
+      onChange={(image) => studio.changeSlideBackgroundImage(image)}
+      onError={(message) => studio.showNotice("error", message)}
+    />
+
+    {#if selectedSlide.layout === "image"}
+      <ImageUploadField
+        label="Slide image"
+        image={selectedSlide.content.image}
+        onChange={(image) => studio.updateSlideField(["image"], image)}
+        onError={(message) => studio.showNotice("error", message)}
+      />
+    {/if}
+
     <FieldEditor
       fields={studio.selectedSlideLayout.fields}
-      value={studio.selectedSlide.content}
+      value={selectedSlide.content}
       path={[]}
       onChange={handleFieldChange}
       onAppendItem={handleAppendItem}

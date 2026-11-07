@@ -102,6 +102,8 @@ export interface DiagramColors {
   muted: string;
   warm: string;
   paper: string;
+  /** Readable text on an accent-filled shape, independent of the paper. */
+  onAccent: string;
 }
 
 /** Used when nothing supplies a deck accent; matches the studio default. */
@@ -111,6 +113,7 @@ export const DIAGRAM_COLORS: DiagramColors = {
   muted: "#667485",
   warm: "#b45309",
   paper: "#ffffff",
+  onAccent: "#ffffff",
 };
 
 export interface DiagramBoxStyle {
@@ -123,7 +126,7 @@ export interface DiagramBoxStyle {
 export function diagramBoxStyle(colors: DiagramColors, tone: DiagramTone | undefined): DiagramBoxStyle {
   switch (tone) {
     case "emphasis":
-      return { stroke: colors.accent, fill: colors.accent, text: colors.paper };
+      return { stroke: colors.accent, fill: colors.accent, text: colors.onAccent };
     case "ink":
       return { stroke: colors.ink, fill: colors.paper, text: colors.ink };
     case "muted":
@@ -743,6 +746,8 @@ export function diagramArrow(
 function diagramNodeMarkup(box: DiagramBox, colors: DiagramColors, hasChildren: boolean): string {
   const style = diagramBoxStyle(colors, box.tone);
   const schema = schemaNodeLayout(box);
+  const headerTextColor =
+    box.tone === "accent" || box.tone === "emphasis" ? colors.onAccent : colors.paper;
 
   if (schema) {
     const separators = schema.separators
@@ -764,7 +769,7 @@ function diagramNodeMarkup(box: DiagramBox, colors: DiagramColors, hasChildren: 
       `<g><path d="${schema.outlinePath}" fill="${style.fill}" stroke="${style.stroke}" stroke-width="2"/>` +
       `<path d="${schema.headerPath}" fill="${style.stroke}"/>` +
       `<text x="${schema.title.x}" y="${schema.title.y}" font-family="${SCHEMA_TITLE_FONT}" ` +
-      `font-size="13" font-weight="600" fill="${colors.paper}">${escapeHtml(schema.title.text)}</text>` +
+      `font-size="13" font-weight="600" fill="${headerTextColor}">${escapeHtml(schema.title.text)}</text>` +
       `${separators}${rows}</g>`
     );
   }

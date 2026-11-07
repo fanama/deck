@@ -35,18 +35,35 @@ function relationships(entries: string): string {
   return `${XML_HEADER}<Relationships xmlns="${NS_REL}">${entries}</Relationships>`;
 }
 
-export function contentTypesXml(slideCount: number, hasImages = false): string {
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+};
+
+export function contentTypesXml(
+  slideCount: number,
+  imageExtensions: ReadonlySet<string> = new Set(),
+): string {
   const slideOverrides = Array.from(
     { length: slideCount },
     (_, index) =>
       `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`,
   ).join("");
+  const imageDefaults = [...imageExtensions]
+    .filter((extension) => IMAGE_CONTENT_TYPES[extension] !== undefined)
+    .map(
+      (extension) =>
+        `<Default Extension="${extension}" ContentType="${IMAGE_CONTENT_TYPES[extension]}"/>`,
+    )
+    .join("");
 
   return (
     `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
     `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
     `<Default Extension="xml" ContentType="application/xml"/>` +
-    (hasImages ? `<Default Extension="png" ContentType="image/png"/>` : "") +
+    imageDefaults +
     `<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>` +
     `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>` +
     `<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>` +
@@ -127,10 +144,10 @@ const EMPTY_SHAPE_TREE =
   `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>` +
   `<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree>`;
 
-export function slideMasterXml(): string {
+export function slideMasterXml(palette: Palette): string {
   return (
     `${XML_HEADER}<p:sldMaster xmlns:a="${NS_A}" xmlns:r="${NS_R}" xmlns:p="${NS_P}">` +
-    `<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>` +
+    `<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${palette.card}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>` +
     `${EMPTY_SHAPE_TREE}</p:cSld>` +
     `<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" ` +
     `accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>` +
@@ -162,11 +179,20 @@ export function slideLayoutRelationshipsXml(): string {
   return relationships(relationship("rId1", "slideMaster", "../slideMasters/slideMaster1.xml"));
 }
 
-/** `imageTarget` is the media part this slide shows, if its layout has one. */
-export function slideRelationshipsXml(imageTarget?: string): string {
+export interface SlideImageRelationship {
+  relId: string;
+  target: string;
+}
+
+/** Each picture on a slide has its own relationship; a slide may show several. */
+export function slideRelationshipsXml(
+  imageRelationships: ReadonlyArray<SlideImageRelationship> = [],
+): string {
   return relationships(
     relationship("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml") +
-      (imageTarget ? relationship("rId2", "image", imageTarget) : ""),
+      imageRelationships
+        .map((image) => relationship(image.relId, "image", image.target))
+        .join(""),
   );
 }
 
@@ -197,7 +223,7 @@ export function themeXml(palette: Palette): string {
     `${XML_HEADER}<a:theme xmlns:a="${NS_A}" name="Deck Studio"><a:themeElements>` +
     `<a:clrScheme name="Deck Studio">` +
     color("dk1", palette.ink) +
-    color("lt1", "FFFFFF") +
+    color("lt1", palette.card) +
     color("dk2", palette.darkBackground) +
     color("lt2", palette.paper) +
     color("accent1", palette.accent) +

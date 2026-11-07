@@ -11,6 +11,7 @@
   --line: #d9d6cf;
   --paper: #f6f4ef;
   --card: #ffffff;
+  --panel: #fbfaf7;
   --accent: #0f6b64;
   --accent-soft: #e3f1ee;
   --accent-line: #cfe5e0;
@@ -63,6 +64,46 @@
   .slide.active {
     animation: none;
   }
+}
+
+/* -- image backgrounds -------------------------------------------------- */
+.slide.has-background-image {
+  isolation: isolate;
+}
+
+/* The scrim uses the deck's own surface colour, so text stays readable. */
+.slide-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.slide-backdrop img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.slide-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+  opacity: 0.62;
+}
+
+.slide.title .slide-backdrop::after,
+.slide.dark .slide-backdrop::after {
+  background: #07161a;
+  opacity: 0.6;
+}
+
+.slide.has-background-image > :not(.slide-backdrop) {
+  position: relative;
+  z-index: 1;
 }
 
 .slide .eyebrow {
@@ -170,7 +211,7 @@
 
 .slide .card {
   padding: 20px 22px;
-  background: #fbfaf7;
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 4px;
 }
@@ -250,7 +291,7 @@
   align-items: start;
   padding: 13px 16px;
   border-left: 2px solid var(--accent);
-  background: #fbfaf7;
+  background: var(--panel);
 }
 
 .slide .rule .k {
@@ -299,7 +340,7 @@
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fbfaf7;
+  background: var(--panel);
 }
 
 .slide .lane-label {
@@ -322,9 +363,9 @@
   flex-direction: column;
   justify-content: center;
   padding: 9px 12px;
-  border: 1px solid #cfd6d3;
+  border: 1px solid var(--line);
   border-radius: 3px;
-  background: #fff;
+  background: var(--card);
   font-size: 12.8px;
   line-height: 1.35;
 }
@@ -344,7 +385,7 @@
   flex: 0 0 auto;
   padding: 0 7px;
   font-size: 15px;
-  color: #9aa8a5;
+  color: var(--muted);
 }
 
 /* -- table: one labelled column, then the evidence columns -------------- */
@@ -409,7 +450,7 @@
 }
 
 .slide .table tbody tr:nth-child(even) td {
-  background: #fbfaf7;
+  background: var(--panel);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -450,6 +491,51 @@
   height: auto;
   max-width: 100%;
   max-height: 100%;
+}
+
+/* -- image: one picture with a caption ---------------------------------- */
+.slide .image-body {
+  gap: 18px;
+}
+
+.slide .slide-figure {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.slide .slide-figure-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.slide .slide-figure-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.slide .slide-figure figcaption {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.slide .image-empty {
+  font-size: 14px;
+  color: var(--muted);
 }
 
 /* Dragging lives in the studio; the exported deck gets the plain cursor. */

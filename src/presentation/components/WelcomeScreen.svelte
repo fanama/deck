@@ -33,7 +33,7 @@
       <h1>Write the deck in the browser, present it from a file.</h1>
 
       <p class="welcome-lede">
-        Nine structured layouts and one stylesheet. The deck saves in this browser and exports as a
+        Ten structured layouts and one stylesheet. The deck saves in this browser and exports as a
         single self-contained HTML file — open it from disk, arrow through it, print one slide per page.
         PowerPoint export writes the same deck with editable text and shapes.
       </p>

@@ -91,19 +91,57 @@ export interface PictureSpec {
   height: number;
   /** Relationship id of the image part on this slide. */
   relId: string;
+  /** Alternative text carried into PowerPoint. */
+  description?: string;
 }
 
-/** A picture part placed on the slide, used by the diagram layout. */
+/** A picture part placed on the slide, used by diagrams and image slides. */
 export function pictureXml(spec: PictureSpec): string {
   const rect = clampRectToSlide(spec);
+  const description = spec.description
+    ? ` descr="${escapeHtml(spec.description)}"`
+    : "";
 
   return (
-    `<p:pic><p:nvPicPr><p:cNvPr id="${spec.id}" name="${escapeHtml(spec.name)}"/>` +
+    `<p:pic><p:nvPicPr><p:cNvPr id="${spec.id}" name="${escapeHtml(spec.name)}"${description}/>` +
     `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
     `<p:blipFill><a:blip r:embed="${spec.relId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
     `<p:spPr><a:xfrm><a:off x="${toEmu(rect.x)}" y="${toEmu(rect.y)}"/>` +
     `<a:ext cx="${toEmu(Math.max(1, rect.width))}" cy="${toEmu(Math.max(1, rect.height))}"/></a:xfrm>` +
     `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`
+  );
+}
+
+export interface BackgroundPicture {
+  relId: string;
+  pixelWidth: number;
+  pixelHeight: number;
+}
+
+/** Crop percentages that make a picture cover a 16:9 slide without stretching. */
+function coverCrop(width: number, height: number): { left: number; top: number; right: number; bottom: number } {
+  const slideAspect = 1280 / 720;
+  const imageAspect = width / Math.max(1, height);
+
+  if (imageAspect > slideAspect) {
+    const crop = (1 - slideAspect / imageAspect) / 2;
+    return { left: crop, top: 0, right: crop, bottom: 0 };
+  }
+
+  const crop = (1 - imageAspect / slideAspect) / 2;
+  return { left: 0, top: crop, right: 0, bottom: crop };
+}
+
+/** A bitmap cover image behind one slide, cropped like CSS `object-fit: cover`. */
+export function slideImageBackgroundXml(picture: BackgroundPicture): string {
+  const crop = coverCrop(picture.pixelWidth, picture.pixelHeight);
+  const percent = (value: number): number => Math.round(value * 100000);
+
+  return (
+    `<p:bg><p:bgPr><a:blipFill><a:blip r:embed="${picture.relId}"/>` +
+    `<a:srcRect l="${percent(crop.left)}" t="${percent(crop.top)}" ` +
+    `r="${percent(crop.right)}" b="${percent(crop.bottom)}"/>` +
+    `<a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>`
   );
 }
 

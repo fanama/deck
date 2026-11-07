@@ -132,7 +132,7 @@ export function tableGraphicFrameXml({
           ],
           fill: palette.ink,
           borders: { left: false, right: index < columnCount - 1, top: false, bottom: false },
-          borderColor: "FFFFFF",
+          borderColor: palette.paper,
           borderAlpha: 0.16,
           marginLeft: index === 0 ? 0 : CELL_MARGIN_X,
         }),

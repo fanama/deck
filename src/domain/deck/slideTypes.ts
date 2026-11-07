@@ -7,6 +7,7 @@ export type SlideLayoutId =
   | "technical"
   | "table"
   | "diagram"
+  | "image"
   | "closing";
 
 export interface MetaRow {
@@ -141,11 +142,28 @@ export interface DiagramSlideContent {
   note: string;
 }
 
+export interface ImageSlideContent {
+  eyebrow: string;
+  heading: string;
+  /** The image is uploaded, optimised and stored with the deck. */
+  image: SlideImage | null;
+  caption: string;
+}
+
 export interface ClosingSlideContent {
   eyebrow: string;
   heading: string;
   lede: string;
   meta: MetaRow[];
+}
+
+/** A self-contained raster image; the source is a data URL, never a remote URL. */
+export interface SlideImage {
+  src: string;
+  /** Kept for accessibility in the preview and the HTML export. */
+  alt: string;
+  width: number;
+  height: number;
 }
 
 /** The content shape each layout owns, keyed by layout id. */
@@ -158,6 +176,7 @@ export interface SlideContentByLayout {
   technical: TechnicalSlideContent;
   table: TableSlideContent;
   diagram: DiagramSlideContent;
+  image: ImageSlideContent;
   closing: ClosingSlideContent;
 }
 
@@ -167,6 +186,8 @@ export type Slide = {
     id: string;
     layout: Layout;
     content: SlideContentByLayout[Layout];
+    /** Decorative cover image behind this slide's content. */
+    backgroundImage?: SlideImage;
   };
 }[SlideLayoutId];
 
@@ -176,6 +197,10 @@ export type SlideContent = Slide["content"];
 
 export interface DeckTheme {
   accentColor: string;
+  /** Slide surface, page backdrop and diagram paper. */
+  backgroundColor: string;
+  /** Primary text; softer tints and lines are derived from it. */
+  textColor: string;
 }
 
 export interface Deck {

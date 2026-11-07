@@ -87,6 +87,13 @@ export function findDeckProblems(deck: Deck): DeckProblem[] {
       });
     }
 
+    if (slide.layout === "image" && !slide.content.image) {
+      problems.push({
+        severity: "warning",
+        message: `Slide ${slideNumber} (${layoutLabel}): choose an image for this slide.`,
+      });
+    }
+
     if (slide.layout === "table" && computeTableLayout(slide.content).overflowsStage) {
       problems.push({
         severity: "warning",

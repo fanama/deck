@@ -5,6 +5,7 @@ import type {
   DiagramSlideContent,
   FlowLane,
   FlowSlideContent,
+  ImageSlideContent,
   MetaRow,
   RulesSlideContent,
   Slide,
@@ -13,13 +14,25 @@ import type {
   TechnicalSlideContent,
   TitleSlideContent,
 } from "../../domain/deck/slideTypes.ts";
-import { SHAPE_TREE_CLOSE, SHAPE_TREE_OPEN, pictureXml, shapeXml, slideBackgroundXml } from "./pptxShapes.ts";
+import {
+  SHAPE_TREE_CLOSE,
+  SHAPE_TREE_OPEN,
+  pictureXml,
+  shapeXml,
+  slideBackgroundXml,
+  slideImageBackgroundXml,
+} from "./pptxShapes.ts";
 import type { ShapeFill } from "./pptxShapes.ts";
 import { computeTableLayout, isNumericCell } from "../../shared/tableLayout.ts";
 import { estimateTextWidth, measureText, textBoxXml } from "./pptxText.ts";
 import type { ParagraphSpec, TextStyle } from "./pptxText.ts";
 import { tableGraphicFrameXml } from "./pptxTable.ts";
-import { frameForLayout, paletteForTheme } from "./pptxUnits.ts";
+import {
+  frameForLayout,
+  paletteForTheme,
+  SLIDE_HEIGHT_PX,
+  SLIDE_WIDTH_PX,
+} from "./pptxUnits.ts";
 import type { Palette, SlideFrame } from "./pptxUnits.ts";
 
 /**
@@ -428,9 +441,9 @@ function renderCardsSlide(canvas: SlideCanvas, content: CardsSlideContent): void
 
 const NODE_ARROW_WIDTH = 28;
 
-function measureLane(lane: FlowLane, rowWidth: number): number {
-  const titleStyle: TextStyle = { fontPx: 13, lineHeight: 1.35, family: "sans", bold: true, color: "12171F" };
-  const detailStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.35, family: "sans", color: "667485" };
+function measureLane(lane: FlowLane, rowWidth: number, palette: Palette): number {
+  const titleStyle: TextStyle = { fontPx: 13, lineHeight: 1.35, family: "sans", bold: true, color: palette.ink };
+  const detailStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.35, family: "sans", color: palette.muted };
   const nodeCount = Math.max(1, lane.nodes.length);
   const nodeWidth = (rowWidth - NODE_ARROW_WIDTH * (nodeCount - 1)) / nodeCount;
 
@@ -462,9 +475,9 @@ function renderFlowSlide(canvas: SlideCanvas, content: FlowSlideContent): void {
     letterSpacingPx: 1.5,
     color: palette.accent,
   };
-  const nodeTitleStyle: TextStyle = { fontPx: 13, lineHeight: 1.35, family: "sans", bold: true, color: "12171F" };
-  const nodeDetailStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.35, family: "sans", color: "667485" };
-  const arrowStyle: TextStyle = { fontPx: 15, lineHeight: 1.2, family: "sans", color: "9AA8A5" };
+  const nodeTitleStyle: TextStyle = { fontPx: 13, lineHeight: 1.35, family: "sans", bold: true, color: palette.ink };
+  const nodeDetailStyle: TextStyle = { fontPx: 11.5, lineHeight: 1.35, family: "sans", color: palette.muted };
+  const arrowStyle: TextStyle = { fontPx: 15, lineHeight: 1.2, family: "sans", color: palette.muted };
   const noteStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
 
   const heading = measureText(content.heading, headingStyle, Math.min(frame.width, lineLengthPx(40, 34, "serif")));
@@ -472,7 +485,7 @@ function renderFlowSlide(canvas: SlideCanvas, content: FlowSlideContent): void {
   const laneLabelWidth = 150;
   const labelGap = 16;
   const rowWidth = frame.width - 32 - laneLabelWidth - labelGap;
-  const laneHeights = content.lanes.map((lane) => measureLane(lane, rowWidth));
+  const laneHeights = content.lanes.map((lane) => measureLane(lane, rowWidth, palette));
   const lanesHeight =
     laneHeights.reduce((total, laneHeight) => total + laneHeight, 0) + Math.max(0, content.lanes.length - 1) * 14;
   const note = content.note.trim() ? measureText(content.note, noteStyle, frame.width) : null;
@@ -532,8 +545,8 @@ function renderFlowSlide(canvas: SlideCanvas, content: FlowSlideContent): void {
           width: nodeWidth,
           height: nodeHeight,
           radiusPx: 3,
-          fill: "FFFFFF",
-          line: { color: "CFD6D3" },
+          fill: palette.card,
+          line: { color: palette.line },
         }),
       );
 
@@ -805,7 +818,7 @@ function renderTableSlideWithShapes(canvas: SlideCanvas, content: TableSlideCont
         y: headerTop,
         width: 1,
         height: layout.headerHeight,
-        fill: { color: "FFFFFF", alpha: 0.16 },
+        fill: { color: palette.paper, alpha: 0.16 },
       }),
     );
   });
@@ -1017,16 +1030,113 @@ function renderTechnicalSlide(canvas: SlideCanvas, content: TechnicalSlideConten
   }
 }
 
+/* -- image --------------------------------------------------------------- */
+
+function renderImageSlide(
+  canvas: SlideCanvas,
+  content: ImageSlideContent,
+  image: SlideImageAsset | null,
+): void {
+  const { frame, palette } = canvas;
+  const eyebrowBottom = writeEyebrow(canvas, content.eyebrow, palette.muted);
+  const region = bodyRegion(canvas, eyebrowBottom);
+
+  const headingStyle: TextStyle = { fontPx: 40, lineHeight: 1.12, family: "serif", bold: true, color: palette.ink };
+  const captionStyle: TextStyle = { fontPx: 13, lineHeight: 1.45, family: "sans", color: palette.muted };
+  const emptyStyle: TextStyle = { fontPx: 14, lineHeight: 1.5, family: "sans", color: palette.muted };
+  const headingWidth = Math.min(frame.width, lineLengthPx(40, 34, "serif"));
+  const heading = measureText(content.heading, headingStyle, headingWidth);
+  const caption = content.caption.trim()
+    ? measureText(content.caption, captionStyle, frame.width)
+    : null;
+
+  writeText(canvas, "Heading", frame.x, region.top, headingWidth, heading.heightPx + 6, [
+    { text: content.heading, style: headingStyle },
+  ]);
+
+  const figureTop = region.top + heading.heightPx + BODY_GAP;
+  const figureBottom = caption ? region.bottom - caption.heightPx - 10 : region.bottom;
+  const figureHeight = Math.max(80, figureBottom - figureTop);
+
+  canvas.shapes.push(
+    shapeXml({
+      id: canvas.nextId(),
+      name: "Image frame",
+      x: frame.x,
+      y: figureTop,
+      width: frame.width,
+      height: figureHeight,
+      geometry: "roundRect",
+      radiusPx: 4,
+      fill: palette.panel,
+      line: { color: palette.line },
+    }),
+  );
+
+  if (image) {
+    const inset = 16;
+    const maxWidth = Math.max(1, frame.width - inset * 2);
+    const maxHeight = Math.max(40, figureHeight - inset * 2);
+    const scale = Math.min(maxWidth / image.pixelWidth, maxHeight / image.pixelHeight);
+    const width = Math.max(1, image.pixelWidth * scale);
+    const height = Math.max(1, image.pixelHeight * scale);
+
+    canvas.shapes.push(
+      pictureXml({
+        id: canvas.nextId(),
+        name: "Slide image",
+        x: frame.x + (frame.width - width) / 2,
+        y: figureTop + (figureHeight - height) / 2,
+        width,
+        height,
+        relId: image.relId,
+        description: content.image?.alt,
+      }),
+    );
+  } else {
+    writeText(
+      canvas,
+      "Image placeholder",
+      frame.x,
+      figureTop,
+      frame.width,
+      figureHeight,
+      [{ text: "Choose an image in the inspector.", style: emptyStyle, align: "ctr" }],
+      "ctr",
+    );
+  }
+
+  if (caption) {
+    writeText(canvas, "Caption", frame.x, region.bottom - caption.heightPx, frame.width, caption.heightPx + 2, [
+      { text: content.caption, style: captionStyle },
+    ]);
+  }
+}
+
 /* -- diagram ------------------------------------------------------------- */
 
 /** Below this the drawing stops reading on a projector; it is cropped instead. */
 const DIAGRAM_MIN_HEIGHT = 90;
 
-export interface DiagramImage {
+export interface SlideImageAsset {
   relId: string;
   pixelWidth: number;
   pixelHeight: number;
 }
+
+export type DiagramImage = SlideImageAsset;
+
+export interface SlideRenderAssets {
+  backgroundImage: SlideImageAsset | null;
+  contentImage: SlideImageAsset | null;
+  diagramImage: SlideImageAsset | null;
+}
+
+export const EMPTY_SLIDE_ASSETS: SlideRenderAssets = {
+  backgroundImage: null,
+  contentImage: null,
+  diagramImage: null,
+};
 
 function renderDiagramSlide(
   canvas: SlideCanvas,
@@ -1107,7 +1217,7 @@ function backgroundFor(slide: Slide, palette: Palette): ShapeFill {
   return slide.layout === "technical" ? palette.darkBackground : palette.card;
 }
 
-function renderSlideBody(canvas: SlideCanvas, slide: Slide, diagramImage: DiagramImage | null): void {
+function renderSlideBody(canvas: SlideCanvas, slide: Slide, assets: SlideRenderAssets): void {
   switch (slide.layout) {
     case "title":
       renderCoverSlide(canvas, slide.content, slide.content.pills);
@@ -1134,7 +1244,10 @@ function renderSlideBody(canvas: SlideCanvas, slide: Slide, diagramImage: Diagra
       renderTableSlide(canvas, slide.content);
       return;
     case "diagram":
-      renderDiagramSlide(canvas, slide.content, diagramImage);
+      renderDiagramSlide(canvas, slide.content, assets.diagramImage);
+      return;
+    case "image":
+      renderImageSlide(canvas, slide.content, assets.contentImage);
       return;
   }
 }
@@ -1144,23 +1257,41 @@ export function renderSlideXml(
   slide: Slide,
   deck: Deck,
   slideIndex: number,
-  diagramImage: DiagramImage | null = null,
+  assets: SlideRenderAssets = EMPTY_SLIDE_ASSETS,
 ): string {
   const palette = paletteForTheme(deck.theme);
   const canvas = createCanvas(frameForLayout(slide.layout), palette);
   const isDark = slide.layout === "technical";
+  const isCover = slide.layout === "title" || slide.layout === "closing";
 
-  renderSlideBody(canvas, slide, diagramImage);
+  if (assets.backgroundImage) {
+    canvas.shapes.push(
+      shapeXml({
+        id: canvas.nextId(),
+        name: "Background scrim",
+        x: 0,
+        y: 0,
+        width: SLIDE_WIDTH_PX,
+        height: SLIDE_HEIGHT_PX,
+        fill: { color: isDark || isCover ? "07161A" : palette.card, alpha: 0.62 },
+      }),
+    );
+  }
+
+  renderSlideBody(canvas, slide, assets);
   writeFooter(canvas, deck.footerLabel, slideIndex + 1, deck.slides.length, isDark);
 
   const namespaces =
     `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
     `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"`;
+  const background = assets.backgroundImage
+    ? slideImageBackgroundXml(assets.backgroundImage)
+    : slideBackgroundXml(backgroundFor(slide, palette));
 
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<p:sld ${namespaces}><p:cSld>${slideBackgroundXml(backgroundFor(slide, palette))}` +
+    `<p:sld ${namespaces}><p:cSld>${background}` +
     `${SHAPE_TREE_OPEN}${canvas.shapes.join("")}${SHAPE_TREE_CLOSE}</p:cSld>` +
     `<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`
   );

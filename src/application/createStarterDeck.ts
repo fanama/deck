@@ -18,11 +18,11 @@ export function createStarterDeck(): Deck {
   const slides: Slide[] = [
     slideWithContent("title", {
       eyebrow: "DECK STUDIO · LAYOUT TOUR",
-      heading: "Nine layouts, one self-contained deck.",
+      heading: "Ten layouts, one self-contained deck.",
       lede: "This starter deck is the catalogue: one slide per layout, each saying what it is for. Edit any field in the inspector, drag a diagram, or start a deck of your own — this one stays in the library.",
       pills: ["One HTML file", "PowerPoint export", "No dependencies"],
       meta: [
-        { label: "What this is", value: "A tour of the nine layouts" },
+        { label: "What this is", value: "A tour of the ten layouts" },
         { label: "How to read it", value: "One layout per slide" },
         { label: "What to do next", value: "New deck, then write yours" },
       ],
@@ -56,7 +56,7 @@ export function createStarterDeck(): Deck {
         {
           label: "Authoring",
           nodes: [
-            { title: "Pick a layout", detail: "nine schemas" },
+            { title: "Pick a layout", detail: "ten schemas" },
             { title: "Fill the fields", detail: "inspector only" },
             { title: "Read the warnings", detail: "before export" },
             { title: "Export", detail: "one document" },
@@ -172,12 +172,18 @@ export function createStarterDeck(): Deck {
       ],
       note: "Drag a box to move it, select one and drag a corner to resize it, double-click a title to rename it, drag from a dot to link two boxes.",
     }),
+    slideWithContent("image", {
+      eyebrow: "LAYOUT 09 · IMAGE",
+      heading: "Image: one picture, with room to read it.",
+      image: null,
+      caption: "Choose an image in the inspector. Any slide can also use an image behind its content.",
+    }),
     slideWithContent("closing", {
-      eyebrow: "LAYOUT 09 · CLOSING",
+      eyebrow: "LAYOUT 10 · CLOSING",
       heading: "Pick a layout, then write the deck.",
       lede: "Every slide here is a form the inspector can fill. This tour stays in the library while you start another deck.",
       meta: [
-        { label: "To remember", value: "Nine layouts, one file." },
+        { label: "To remember", value: "Ten layouts, one file." },
         { label: "To do", value: "New deck → pick a layout → export." },
       ],
     }),

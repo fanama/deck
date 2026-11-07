@@ -2,9 +2,11 @@ import { slideShellClassForLayout } from "../../domain/deck/slideLayoutCatalog.t
 import type {
   CardsSlideContent,
   ClosingSlideContent,
+  DeckTheme,
   DiagramSlideContent,
   FlowLane,
   FlowSlideContent,
+  ImageSlideContent,
   MetaRow,
   RulesSlideContent,
   Slide,
@@ -13,8 +15,9 @@ import type {
   TechnicalSlideContent,
   TitleSlideContent,
 } from "../../domain/deck/slideTypes.ts";
+import { buildDiagramThemeColors } from "../../domain/deck/deckTheme.ts";
 import { escapeHtml } from "../../shared/escapeHtml.ts";
-import { buildDiagramSvg, DIAGRAM_COLORS } from "../../shared/diagramSvg.ts";
+import { buildDiagramSvg } from "../../shared/diagramSvg.ts";
 import { computeTableLayout, isNumericCell } from "../../shared/tableLayout.ts";
 
 function renderEyebrow(eyebrow: string): string {
@@ -177,6 +180,25 @@ function renderStatementSlideBody(content: StatementSlideContent): string {
     .join("\n");
 }
 
+function renderImageSlideBody(content: ImageSlideContent): string {
+  const imageHtml = content.image
+    ? `<img src="${escapeHtml(content.image.src)}" alt="${escapeHtml(content.image.alt)}" />`
+    : `<p class="image-empty">Choose an image in the inspector.</p>`;
+
+  return [
+    renderEyebrow(content.eyebrow),
+    `      <div class="body image-body">`,
+    `        <h2>${escapeHtml(content.heading)}</h2>`,
+    `        <figure class="slide-figure">`,
+    `          <div class="slide-figure-frame">${imageHtml}</div>`,
+    content.caption ? `          <figcaption>${escapeHtml(content.caption)}</figcaption>` : "",
+    `        </figure>`,
+    `      </div>`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
 function renderTechnicalSlideBody(content: TechnicalSlideContent): string {
   const componentsHtml = content.components
     .map((component) => `<span class="mono">${escapeHtml(component)}</span>`)
@@ -253,14 +275,14 @@ function renderTableSlideBody(content: TableSlideContent): string {
     .join("\n");
 }
 
-function renderDiagramSlideBody(content: DiagramSlideContent, accentColor: string): string {
+function renderDiagramSlideBody(content: DiagramSlideContent, theme: DeckTheme): string {
   const markup =
     content.boxes.length > 0
       ? buildDiagramSvg({
           boxes: content.boxes,
           links: content.links,
           title: content.heading,
-          colors: { ...DIAGRAM_COLORS, accent: accentColor },
+          colors: buildDiagramThemeColors(theme),
           routing: content.routing,
         })
       : "";
@@ -277,7 +299,7 @@ function renderDiagramSlideBody(content: DiagramSlideContent, accentColor: strin
     .join("\n");
 }
 
-function renderSlideBody(slide: Slide, accentColor: string): string {
+function renderSlideBody(slide: Slide, theme: DeckTheme): string {
   switch (slide.layout) {
     case "title":
       return renderTitleSlideBody(slide.content);
@@ -294,10 +316,18 @@ function renderSlideBody(slide: Slide, accentColor: string): string {
     case "table":
       return renderTableSlideBody(slide.content);
     case "diagram":
-      return renderDiagramSlideBody(slide.content, accentColor);
+      return renderDiagramSlideBody(slide.content, theme);
+    case "image":
+      return renderImageSlideBody(slide.content);
     case "closing":
       return renderClosingSlideBody(slide.content);
   }
+}
+
+function renderSlideBackdrop(slide: Slide): string {
+  if (!slide.backgroundImage) return "";
+
+  return `      <div class="slide-backdrop" aria-hidden="true"><img src="${escapeHtml(slide.backgroundImage.src)}" alt="" /></div>`;
 }
 
 export interface RenderSlideSectionInput {
@@ -306,8 +336,8 @@ export interface RenderSlideSectionInput {
   totalSlides: number;
   footerLabel: string;
   isActive: boolean;
-  /** Normalised deck accent, used by layouts that draw their own colours. */
-  accentColor: string;
+  /** Normalised deck palette, used by layouts that draw their own colours. */
+  theme: DeckTheme;
 }
 
 /** One section of the exported document, mirroring the preview component. */
@@ -317,12 +347,14 @@ export function renderSlideSectionHtml({
   totalSlides,
   footerLabel,
   isActive,
-  accentColor,
+  theme,
 }: RenderSlideSectionInput): string {
   const activeClass = isActive ? " active" : "";
+  const backgroundClass = slide.backgroundImage ? " has-background-image" : "";
 
-  return `    <section class="${slideShellClassForLayout(slide.layout)}${activeClass}">
-${renderSlideBody(slide, accentColor)}
+  return `    <section class="${slideShellClassForLayout(slide.layout)}${backgroundClass}${activeClass}">
+${renderSlideBackdrop(slide)}
+${renderSlideBody(slide, theme)}
       <div class="footer"><span>${escapeHtml(footerLabel)}</span><span>${slideNumber} / ${totalSlides}</span></div>
     </section>`;
 }

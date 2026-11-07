@@ -57,7 +57,7 @@ export const DECK_DOCUMENT_CSS = `
     height: 30px;
     border: 1px solid var(--line);
     border-radius: 4px;
-    background: #fff;
+    background: var(--card);
     color: var(--ink-soft);
     font-size: 14px;
     line-height: 1;
@@ -65,7 +65,7 @@ export const DECK_DOCUMENT_CSS = `
   }
 
   .chrome button:hover {
-    border-color: #b9c4c1;
+    border-color: var(--muted);
     color: var(--ink);
   }
 
@@ -81,7 +81,7 @@ export const DECK_DOCUMENT_CSS = `
     z-index: 10;
     font-size: 11.5px;
     letter-spacing: 0.04em;
-    color: #98a3a0;
+    color: var(--muted);
   }
 
   @page {
@@ -92,7 +92,7 @@ export const DECK_DOCUMENT_CSS = `
   @media print {
     html, body {
       height: auto;
-      background: #fff;
+      background: var(--paper);
     }
 
     .viewport {
